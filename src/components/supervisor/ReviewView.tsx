@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FileText, Filter } from 'lucide-react';
+import { FileText, Filter, RotateCcw } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { supervisorApi } from '../../services/api';
 import { SupervisorReviewDto } from '../../types';
@@ -11,7 +11,7 @@ export const ReviewView = () => {
   const [filteredFiles, setFilteredFiles] = useState<SupervisorReviewDto[]>([]);
   const [selectedFile, setSelectedFile] = useState<SupervisorReviewDto | null>(null);
   const [loading, setLoading] = useState(true);
-  const [filterStatus, setFilterStatus] = useState<'all' | 'unchecked' | 'checked'>('unchecked');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'unchecked' | 'checked' | 'sentback'>('unchecked');
 
   useEffect(() => {
     loadFiles();
@@ -38,12 +38,14 @@ export const ReviewView = () => {
   };
 
   const applyFilter = () => {
-    let filtered = files.filter(f => f.status === 'Completed');
+    let filtered = files.filter(f => f.status === 'Completed' || f.status === 'NeedsRevision');
 
     if (filterStatus === 'unchecked') {
-      filtered = filtered.filter(f => !f.isCheckedBySupervisor);
+      filtered = filtered.filter(f => f.status === 'Completed' && !f.isCheckedBySupervisor);
     } else if (filterStatus === 'checked') {
       filtered = filtered.filter(f => f.isCheckedBySupervisor);
+    } else if (filterStatus === 'sentback') {
+      filtered = filtered.filter(f => f.status === 'NeedsRevision');
     }
 
     setFilteredFiles(filtered);
@@ -105,6 +107,16 @@ export const ReviewView = () => {
             >
               Reviewed
             </button>
+            <button
+              onClick={() => setFilterStatus('sentback')}
+              className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                filterStatus === 'sentback'
+                  ? 'bg-amber-600 text-white'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              Sent Back
+            </button>
           </div>
         </div>
         <div className="text-sm text-slate-600">
@@ -127,7 +139,12 @@ export const ReviewView = () => {
             >
               <div className="flex items-start justify-between mb-3">
                 <FileText className="w-5 h-5 text-slate-600 flex-shrink-0" />
-                {file.isCheckedBySupervisor ? (
+                {file.status === 'NeedsRevision' ? (
+                  <span className="text-xs px-2 py-1 bg-amber-100 text-amber-700 rounded-md flex items-center gap-1">
+                    <RotateCcw className="w-3 h-3" />
+                    Sent Back
+                  </span>
+                ) : file.isCheckedBySupervisor ? (
                   <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded-md">
                     Reviewed
                   </span>

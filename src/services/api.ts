@@ -15,6 +15,8 @@ import {
   StudentWithStatsDto,
   SupervisorReviewDto,
   MarkFileCheckedRequest,
+  SendBackToTaggerRequest,
+  EditFileTagsRequest,
   StudentSupervisorDto,
   AssignStudentToSupervisorRequest,
 } from '../types';
@@ -29,10 +31,7 @@ const getAuthHeaders = (token: string) => ({
 
 const handleResponse = async <T>(response: Response): Promise<T> => {
   if (response.status === 401) {
-    // Clear any stored auth data and redirect to login
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    window.location.href = '/login';
+    window.dispatchEvent(new Event('auth:logout'));
     throw new Error('Unauthorized');
   }
   return response.json();
@@ -252,6 +251,24 @@ export const supervisorApi = {
   async markFileChecked(token: string, data: MarkFileCheckedRequest): Promise<ApiResponse<boolean>> {
     const response = await fetch(`${API_URL}/api/Supervisor/mark-file-checked`, {
       method: 'POST',
+      headers: getAuthHeaders(token),
+      body: JSON.stringify(data),
+    });
+    return handleResponse(response);
+  },
+
+  async sendBackToTagger(token: string, data: SendBackToTaggerRequest): Promise<ApiResponse<boolean>> {
+    const response = await fetch(`${API_URL}/api/Supervisor/send-back-to-tagger`, {
+      method: 'POST',
+      headers: getAuthHeaders(token),
+      body: JSON.stringify(data),
+    });
+    return handleResponse(response);
+  },
+
+  async editFileTags(token: string, fileId: number, data: EditFileTagsRequest): Promise<ApiResponse<boolean>> {
+    const response = await fetch(`${API_URL}/api/Supervisor/files/${fileId}/tags`, {
+      method: 'PUT',
       headers: getAuthHeaders(token),
       body: JSON.stringify(data),
     });

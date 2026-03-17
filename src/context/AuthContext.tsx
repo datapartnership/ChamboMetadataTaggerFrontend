@@ -20,6 +20,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
+  useEffect(() => {
+    const handleForceLogout = () => {
+      setUser(null);
+      setToken(null);
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('auth_user');
+    };
+    window.addEventListener('auth:logout', handleForceLogout);
+    return () => window.removeEventListener('auth:logout', handleForceLogout);
+  }, []);
+
   const login = async (email: string, password: string) => {
     setIsLoading(true);
 

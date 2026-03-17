@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { LogOut, FileText, CheckCircle, Clock } from 'lucide-react';
+import { LogOut, FileText, CheckCircle, Clock, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { taggerApi } from '../../services/api';
 import { FileMetadataDto } from '../../types';
@@ -37,7 +37,8 @@ export const TaggerDashboard = () => {
   };
 
   const completedCount = files.filter(f => f.status === 'Completed').length;
-  const inProgressCount = files.filter(f => f.status === 'InProgress').length;
+  const inProgressCount = files.filter(f => f.status === 'InProgress' || f.status === 'NeedsRevision').length;
+  const needsRevisionCount = files.filter(f => f.status === 'NeedsRevision').length;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
@@ -73,7 +74,7 @@ export const TaggerDashboard = () => {
       </header>
 
       <main className="max-w-7xl mx-auto px-6 py-8">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
           <div className="bg-white rounded-2xl shadow-sm p-6">
             <div className="flex items-center gap-3 mb-2">
               <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center">
@@ -92,6 +93,22 @@ export const TaggerDashboard = () => {
               <h3 className="text-sm font-medium text-slate-600">In Progress</h3>
             </div>
             <p className="text-3xl font-bold text-slate-900">{inProgressCount}</p>
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-sm p-6">
+            <div className="flex items-center gap-3 mb-2">
+              <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                needsRevisionCount > 0 ? 'bg-amber-100' : 'bg-slate-100'
+              }`}>
+                <AlertTriangle className={`w-5 h-5 ${
+                  needsRevisionCount > 0 ? 'text-amber-600' : 'text-slate-400'
+                }`} />
+              </div>
+              <h3 className="text-sm font-medium text-slate-600">Needs Revision</h3>
+            </div>
+            <p className={`text-3xl font-bold ${
+              needsRevisionCount > 0 ? 'text-amber-600' : 'text-slate-900'
+            }`}>{needsRevisionCount}</p>
           </div>
 
           <div className="bg-white rounded-2xl shadow-sm p-6">
@@ -138,8 +155,12 @@ export const TaggerDashboard = () => {
                         }`}>
                           {file.fileName}
                         </p>
-                        <div className="flex items-center gap-2 mt-1">
-                          {file.status === 'Completed' ? (
+                    <div className="flex items-center gap-2 mt-1">
+                          {file.status === 'NeedsRevision' ? (
+                            <AlertTriangle className={`w-3 h-3 ${
+                              selectedFile?.id === file.id ? 'text-amber-300' : 'text-amber-500'
+                            }`} />
+                          ) : file.status === 'Completed' ? (
                             <CheckCircle className={`w-3 h-3 ${
                               selectedFile?.id === file.id ? 'text-green-300' : 'text-green-600'
                             }`} />
@@ -151,7 +172,7 @@ export const TaggerDashboard = () => {
                           <span className={`text-xs ${
                             selectedFile?.id === file.id ? 'text-slate-300' : 'text-slate-500'
                           }`}>
-                            {file.tags.length} tag{file.tags.length !== 1 ? 's' : ''}
+                            {file.status === 'NeedsRevision' ? 'Needs Revision' : `${file.tags.length} tag${file.tags.length !== 1 ? 's' : ''}`}
                           </span>
                         </div>
                       </div>

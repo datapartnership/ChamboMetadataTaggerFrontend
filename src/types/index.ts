@@ -153,6 +153,18 @@ export interface MarkFileCheckedRequest {
   notes: string;
 }
 
+export interface SendBackToTaggerRequest {
+  fileId: number;
+  studentId: number;
+  notes: string;
+}
+
+export interface EditFileTagsRequest {
+  studentId: number;
+  tags: TagDto[];
+  notes: string;
+}
+
 export interface StudentSupervisorDto {
   id: number;
   studentId: number;
