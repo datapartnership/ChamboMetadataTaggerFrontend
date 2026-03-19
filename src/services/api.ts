@@ -20,8 +20,7 @@ import {
   StudentSupervisorDto,
   AssignStudentToSupervisorRequest,
 } from '../types';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+import { API_URL } from '../config';
 
 const getAuthHeaders = (token: string) => ({
   'Authorization': `Bearer ${token}`,

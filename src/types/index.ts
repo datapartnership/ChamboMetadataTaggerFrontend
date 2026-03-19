@@ -38,11 +38,15 @@ export interface FileMetadataDto {
   blobName: string;
   fileSize: number;
   contentType: string;
+  fileCategory: string | null;
   uploadedAt: string;
   status: string;
   taggingCompletedAt: string | null;
+  durationSeconds: number | null;
   tags: TagDto[];
   assignedToUserIds: number[];
+  supervisorNotes: string | null;
+  supervisorCheckedAt: string | null;
 }
 
 export interface BlobFileDto {

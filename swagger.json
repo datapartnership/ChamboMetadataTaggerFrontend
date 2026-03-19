@@ -1985,6 +1985,15 @@
               "format": "int32"
             },
             "nullable": true
+          },
+          "supervisorNotes": {
+            "type": "string",
+            "nullable": true
+          },
+          "supervisorCheckedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
           }
         },
         "additionalProperties": false

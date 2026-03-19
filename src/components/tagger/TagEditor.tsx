@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Save, CheckCircle, AlertCircle, ExternalLink, X } from 'lucide-react';
+import { Save, CheckCircle, AlertCircle, ExternalLink, X, RotateCcw } from 'lucide-react';
 import { marked } from 'marked';
 import { useAuth } from '../../context/AuthContext';
 import { taggerApi } from '../../services/api';
@@ -321,6 +321,20 @@ export const TagEditor = ({ file, onUpdate }: TagEditorProps) => {
           </div>
         </div>
 
+      {file.status === 'NeedsRevision' && (
+        <div className="flex gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+          <RotateCcw className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-amber-900">Sent Back for Revision</p>
+            {file.supervisorNotes ? (
+              <p className="text-sm text-amber-800 mt-1">{file.supervisorNotes}</p>
+            ) : (
+              <p className="text-sm text-amber-700 mt-1 italic">No notes provided by supervisor.</p>
+            )}
+          </div>
+        </div>
+      )}
+
       {message && (
         <div className={`p-4 rounded-lg border ${
           message.type === 'success'
@@ -350,9 +364,11 @@ export const TagEditor = ({ file, onUpdate }: TagEditorProps) => {
             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium ${
               file.status === 'Completed'
                 ? 'bg-green-100 text-green-800'
+                : file.status === 'NeedsRevision'
+                ? 'bg-amber-100 text-amber-800'
                 : 'bg-accent-teal-100 text-blue-800'
             }`}>
-              {file.status === 'Completed' ? 'Completed' : 'In Progress'}
+              {file.status === 'Completed' ? 'Completed' : file.status === 'NeedsRevision' ? 'Needs Revision' : 'In Progress'}
             </span>
           </div>
         </div>
