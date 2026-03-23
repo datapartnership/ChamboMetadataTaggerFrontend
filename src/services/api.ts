@@ -139,7 +139,7 @@ export const adminApi = {
   },
 
   async getBlobPreview(token: string, blobName: string, expiryMinutes: number = 60): Promise<ApiResponse<FilePreviewDto>> {
-    const response = await fetch(`${API_URL}/api/Admin/blobs/${encodeURIComponent(blobName)}/preview?expiryMinutes=${expiryMinutes}`, {
+    const response = await fetch(`${API_URL}/api/Admin/blobs/preview?blobName=${encodeURIComponent(blobName)}&expiryMinutes=${expiryMinutes}`, {
       headers: getAuthHeaders(token),
     });
     return handleResponse(response);

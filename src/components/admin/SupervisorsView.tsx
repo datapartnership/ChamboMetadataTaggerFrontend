@@ -117,12 +117,12 @@ export const SupervisorsView = () => {
 
                 <div>
                   <h4 className="text-sm font-medium text-slate-700 mb-3">
-                    Assigned Students ({assignedStudents.length})
+                    Assigned Taggers ({assignedStudents.length})
                   </h4>
 
                   {assignedStudents.length === 0 ? (
                     <div className="bg-white rounded-lg p-4 text-center text-sm text-slate-500">
-                      No students assigned
+                      No taggers assigned
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -205,10 +205,10 @@ const AssignStudentModal = ({ supervisor, availableStudents, onClose, onSuccess 
       if (response.success) {
         onSuccess();
       } else {
-        setError(response.message || 'Failed to assign student');
+        setError(response.message || 'Failed to assign tagger');
       }
     } catch (err) {
-      setError('An error occurred while assigning student');
+      setError('An error occurred while assigning tagger');
     } finally {
       setLoading(false);
     }
@@ -219,7 +219,7 @@ const AssignStudentModal = ({ supervisor, availableStudents, onClose, onSuccess 
       <div className="bg-white rounded-2xl shadow-xl max-w-md w-full">
         <div className="p-6 border-b border-slate-200">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold text-slate-900">Assign Student</h2>
+            <h2 className="text-xl font-bold text-slate-900">Assign Tagger</h2>
             <button
               onClick={onClose}
               className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
@@ -228,7 +228,7 @@ const AssignStudentModal = ({ supervisor, availableStudents, onClose, onSuccess 
             </button>
           </div>
           <p className="text-sm text-slate-600 mt-2">
-            Assign a student to {supervisor.username}
+            Assign a tagger to {supervisor.username}
           </p>
         </div>
 
@@ -241,12 +241,12 @@ const AssignStudentModal = ({ supervisor, availableStudents, onClose, onSuccess 
 
           {availableStudents.length === 0 ? (
             <div className="text-center py-8 text-slate-600">
-              <p>All students are already assigned to this supervisor.</p>
+              <p>All taggers are already assigned to this supervisor.</p>
             </div>
           ) : (
             <div className="space-y-2">
               <label className="block text-sm font-medium text-slate-700 mb-2">
-                Select Student
+                Select Tagger
               </label>
               {availableStudents.map((student) => (
                 <button

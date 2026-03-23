@@ -253,6 +253,16 @@
         "tags": [
           "Admin"
         ],
+        "parameters": [
+          {
+            "name": "folder",
+            "in": "query",
+            "style": "form",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success",
@@ -277,7 +287,7 @@
         }
       }
     },
-    "/api/Admin/blobs/{blobName}/preview": {
+    "/api/Admin/blobs/preview": {
       "get": {
         "tags": [
           "Admin"
@@ -285,9 +295,8 @@
         "parameters": [
           {
             "name": "blobName",
-            "in": "path",
-            "required": true,
-            "style": "simple",
+            "in": "query",
+            "style": "form",
             "schema": {
               "type": "string"
             }
@@ -927,6 +936,35 @@
               "text/json": {
                 "schema": {
                   "$ref": "#/components/schemas/StudentSupervisorDtoIEnumerableApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Admin/reset-database": {
+      "post": {
+        "tags": [
+          "Admin"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BooleanApiResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BooleanApiResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BooleanApiResponse"
                 }
               }
             }
