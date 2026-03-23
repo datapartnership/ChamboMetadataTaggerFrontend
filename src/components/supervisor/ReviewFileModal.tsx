@@ -1,9 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { X, CheckCircle, AlertCircle, ExternalLink, User, Calendar, Tag as TagIcon, Edit2, RotateCcw, Plus, Trash2 } from 'lucide-react';
 import { marked } from 'marked';
 import { useAuth } from '../../context/AuthContext';
 import { supervisorApi } from '../../services/api';
 import { SupervisorReviewDto, FilePreviewDto, TagDto } from '../../types';
+import { ThemeSelector } from '../tagger/ThemeSelector';
+import { SelectedTheme, formatThemeDisplay } from '../../data/unbisThesaurus';
+
+const MAX_THEMES = 3;
 
 interface ReviewFileModalProps {
   file: SupervisorReviewDto;
@@ -25,6 +29,12 @@ export const ReviewFileModal = ({ file, onClose, onReviewed }: ReviewFileModalPr
   const [isEditingTags, setIsEditingTags] = useState(false);
   const [editableTags, setEditableTags] = useState<TagDto[]>([]);
   const [editTagNotes, setEditTagNotes] = useState('');
+
+  // Keyword/theme editing state
+  const [keywords, setKeywords] = useState<string[]>([]);
+  const [keywordInput, setKeywordInput] = useState('');
+  const keywordInputRef = useRef<HTMLInputElement>(null);
+  const [selectedThemes, setSelectedThemes] = useState<SelectedTheme[]>([]);
 
   // Send back state
   const [isSendingBack, setIsSendingBack] = useState(false);
@@ -97,10 +107,41 @@ export const ReviewFileModal = ({ file, onClose, onReviewed }: ReviewFileModalPr
   };
 
   const handleStartEditTags = () => {
-    setEditableTags(file.tags.map(t => ({ ...t })));
+    const keywordsTag = file.tags.find(t => t.tagKey === 'Keywords');
+    const themeTag = file.tags.find(t => t.tagKey === 'Theme');
+    setEditableTags(file.tags.filter(t => t.tagKey !== 'Keywords' && t.tagKey !== 'Theme').map(t => ({ ...t })));
+    setKeywords(keywordsTag?.tagValue ? keywordsTag.tagValue.split(',').map(k => k.trim()).filter(k => k) : []);
+    setSelectedThemes(themeTag?.tagValue ? themeTag.tagValue.split(' | ').map(themeStr => {
+      const parts = themeStr.split(' > ');
+      if (parts.length === 2) {
+        return { level1Code: '', level1Name: parts[0].trim(), level2Code: '', level2Name: parts[1].trim() };
+      }
+      return { level1Code: '', level1Name: parts[0].trim() };
+    }).filter(t => t.level1Name) : []);
     setEditTagNotes('');
     setIsEditingTags(true);
     setMessage(null);
+  };
+
+  const addKeyword = (keyword: string) => {
+    const trimmed = keyword.trim();
+    if (trimmed && !keywords.includes(trimmed)) {
+      setKeywords(prev => [...prev, trimmed]);
+      setKeywordInput('');
+    }
+  };
+
+  const removeKeyword = (keywordToRemove: string) => {
+    setKeywords(prev => prev.filter(k => k !== keywordToRemove));
+  };
+
+  const handleKeywordKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      addKeyword(keywordInput);
+    } else if (e.key === 'Backspace' && !keywordInput && keywords.length > 0) {
+      removeKeyword(keywords[keywords.length - 1]);
+    }
   };
 
   const handleSaveEditedTags = async () => {
@@ -110,9 +151,17 @@ export const ReviewFileModal = ({ file, onClose, onReviewed }: ReviewFileModalPr
     setMessage(null);
 
     try {
+      const allTags: TagDto[] = [...editableTags.filter(t => t.tagKey.trim())];
+      if (keywords.length > 0) {
+        allTags.push({ tagKey: 'Keywords', tagValue: keywords.join(', ') });
+      }
+      if (selectedThemes.length > 0) {
+        allTags.push({ tagKey: 'Theme', tagValue: selectedThemes.map(t => formatThemeDisplay(t)).join(' | ') });
+      }
+
       const response = await supervisorApi.editFileTags(token, file.fileId, {
         studentId: file.studentId,
-        tags: editableTags,
+        tags: allTags,
         notes: editTagNotes.trim(),
       });
 
@@ -219,7 +268,8 @@ export const ReviewFileModal = ({ file, onClose, onReviewed }: ReviewFileModalPr
                 </div>
 
                 {isEditingTags ? (
-                  <div className="space-y-2">
+                  <div className="space-y-3">
+                    {/* Other tags */}
                     {editableTags.map((tag, index) => (
                       <div key={index} className="flex gap-2 items-start">
                         <input
@@ -259,6 +309,52 @@ export const ReviewFileModal = ({ file, onClose, onReviewed }: ReviewFileModalPr
                       <Plus className="w-3 h-3" />
                       Add Tag
                     </button>
+
+                    {/* Keywords */}
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 mb-1">Keywords</label>
+                      <div className="flex flex-wrap gap-2 min-h-[40px] p-2 bg-white border border-slate-200 rounded-lg focus-within:ring-1 focus-within:ring-primary-700">
+                        {keywords.map((keyword) => (
+                          <span
+                            key={keyword}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-gradient-to-r from-primary-500 to-primary-600 text-white text-xs font-medium rounded-full"
+                          >
+                            <span className="text-primary-100">#</span>
+                            {keyword}
+                            <button
+                              type="button"
+                              onClick={() => removeKeyword(keyword)}
+                              className="ml-0.5 hover:bg-primary-700 rounded-full p-0.5 transition-colors"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </span>
+                        ))}
+                        <input
+                          ref={keywordInputRef}
+                          type="text"
+                          value={keywordInput}
+                          onChange={(e) => setKeywordInput(e.target.value)}
+                          onKeyDown={handleKeywordKeyDown}
+                          className="flex-1 min-w-[100px] outline-none bg-transparent text-xs text-slate-900 placeholder-slate-400"
+                          placeholder={keywords.length === 0 ? 'Type keyword and press Enter...' : 'Add more...'}
+                        />
+                      </div>
+                      <p className="text-xs text-slate-400 mt-1">
+                        Press <kbd className="px-1 py-0.5 bg-slate-100 border border-slate-300 rounded text-slate-600 font-mono text-[10px]">Enter</kbd> to add, <kbd className="px-1 py-0.5 bg-slate-100 border border-slate-300 rounded text-slate-600 font-mono text-[10px]">Backspace</kbd> to remove last
+                      </p>
+                    </div>
+
+                    {/* Theme */}
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 mb-1">Theme (UNBIS Thesaurus)</label>
+                      <ThemeSelector
+                        selectedThemes={selectedThemes}
+                        onChange={setSelectedThemes}
+                        maxThemes={MAX_THEMES}
+                      />
+                    </div>
+
                     <div className="mt-2">
                       <label className="block text-xs font-medium text-slate-600 mb-1">Notes (optional)</label>
                       <textarea
