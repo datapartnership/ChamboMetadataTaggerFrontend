@@ -161,8 +161,17 @@ export const TagEditor = ({ file, onUpdate }: TagEditorProps) => {
     }
   };
 
+  const hasAnyTag =
+    PREDEFINED_TAGS.some(key => key !== 'Keywords' && tagValues[key]?.trim()) ||
+    keywords.length > 0 ||
+    selectedThemes.length > 0;
+
   const handleSave = async () => {
     if (!token) return;
+    if (!hasAnyTag) {
+      setMessage({ type: 'error', text: 'Please add at least one tag before saving.' });
+      return;
+    }
 
     setSaving(true);
     setMessage(null);
@@ -209,7 +218,12 @@ export const TagEditor = ({ file, onUpdate }: TagEditorProps) => {
   };
 
   const handleComplete = async () => {
-    if (!token || !confirm('Mark this file as completed?')) return;
+    if (!token) return;
+    if (!hasAnyTag) {
+      setMessage({ type: 'error', text: 'Please add at least one tag before marking as complete.' });
+      return;
+    }
+    if (!confirm('Mark this file as completed?')) return;
 
     setCompleting(true);
     setMessage(null);
@@ -329,7 +343,8 @@ export const TagEditor = ({ file, onUpdate }: TagEditorProps) => {
           <div className="flex items-center gap-2">
             <button
               onClick={handleSave}
-              disabled={saving}
+              disabled={saving || !hasAnyTag}
+              title={!hasAnyTag ? 'Add at least one tag before saving' : undefined}
               className="flex items-center gap-2 px-3 py-2 bg-primary-800 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
             >
               <Save className="w-4 h-4" />
@@ -338,7 +353,8 @@ export const TagEditor = ({ file, onUpdate }: TagEditorProps) => {
             {file.status !== 'Completed' && (
               <button
                 onClick={handleComplete}
-                disabled={completing}
+                disabled={completing || !hasAnyTag}
+                title={!hasAnyTag ? 'Add at least one tag before completing' : undefined}
                 className="flex items-center gap-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
               >
                 <CheckCircle className="w-4 h-4" />
