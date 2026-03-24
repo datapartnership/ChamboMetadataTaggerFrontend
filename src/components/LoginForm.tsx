@@ -33,6 +33,7 @@ export const LoginForm = () => {
 
           <h1 className="text-2xl font-bold text-center text-primary-900 mb-2">
             Chambo Metadata Tagger
+            <span className="ml-2 text-xs font-normal text-slate-400">v{__APP_VERSION__}</span>
           </h1>
           <p className="text-center text-slate-600 mb-8">
             Sign in to manage your files

@@ -24,7 +24,10 @@ export const AdminDashboard = () => {
                 className="w-12 h-12 object-contain"
               />
               <div>
-                <h1 className="text-xl font-bold text-slate-900">Chambo Metadata Tagger</h1>
+                <div className="flex items-baseline gap-2">
+                  <h1 className="text-xl font-bold text-slate-900">Chambo Metadata Tagger</h1>
+                  <span className="text-xs font-medium text-slate-400">v{__APP_VERSION__}</span>
+                </div>
                 <p className="text-sm text-slate-600">Admin Dashboard</p>
               </div>
             </div>

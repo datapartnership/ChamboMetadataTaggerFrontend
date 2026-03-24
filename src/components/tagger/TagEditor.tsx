@@ -61,6 +61,33 @@ export const TagEditor = ({ file, onUpdate }: TagEditorProps) => {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
+    const initialValues: Record<string, string> = {};
+    PREDEFINED_TAGS.forEach(key => {
+      const existingTag = file.tags?.find(t => t.tagKey === key);
+      initialValues[key] = existingTag?.tagValue || '';
+    });
+    setTagValues(initialValues);
+
+    const existingKeywords = file.tags?.find(t => t.tagKey === 'Keywords');
+    setKeywords(existingKeywords?.tagValue ? existingKeywords.tagValue.split(',').map(k => k.trim()).filter(k => k) : []);
+    setKeywordInput('');
+
+    const existingTheme = file.tags?.find(t => t.tagKey === 'Theme');
+    if (existingTheme?.tagValue) {
+      setSelectedThemes(
+        existingTheme.tagValue.split(' | ').map(themeStr => {
+          const parts = themeStr.split(' > ');
+          if (parts.length === 2) {
+            return { level1Code: '', level1Name: parts[0].trim(), level2Code: '', level2Name: parts[1].trim() };
+          }
+          return { level1Code: '', level1Name: parts[0].trim() };
+        }).filter(t => t.level1Name)
+      );
+    } else {
+      setSelectedThemes([]);
+    }
+
+    setMessage(null);
     loadPreview();
   }, [file.id]);
 

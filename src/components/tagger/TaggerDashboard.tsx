@@ -10,6 +10,7 @@ export const TaggerDashboard = () => {
   const [files, setFiles] = useState<FileMetadataDto[]>([]);
   const [selectedFile, setSelectedFile] = useState<FileMetadataDto | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<'all' | 'inprogress' | 'needsrevision' | 'completed'>('all');
 
   useEffect(() => {
     loadFiles();
@@ -37,8 +38,16 @@ export const TaggerDashboard = () => {
   };
 
   const completedCount = files.filter(f => f.status === 'Completed').length;
-  const inProgressCount = files.filter(f => f.status === 'InProgress' || f.status === 'NeedsRevision').length;
+  const inProgressCount = files.filter(f => f.status === 'InProgress').length;
   const needsRevisionCount = files.filter(f => f.status === 'NeedsRevision').length;
+
+  const filteredFiles = files.filter((f) => {
+    if (activeTab === 'all') return true;
+    if (activeTab === 'inprogress') return f.status === 'InProgress';
+    if (activeTab === 'needsrevision') return f.status === 'NeedsRevision';
+    if (activeTab === 'completed') return f.status === 'Completed';
+    return true;
+  });
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
@@ -52,7 +61,10 @@ export const TaggerDashboard = () => {
                 className="w-12 h-12 object-contain"
               />
               <div>
-                <h1 className="text-xl font-bold text-slate-900">Chambo Metadata Tagger</h1>
+                <div className="flex items-baseline gap-2">
+                  <h1 className="text-xl font-bold text-slate-900">Chambo Metadata Tagger</h1>
+                  <span className="text-xs font-medium text-slate-400">v{__APP_VERSION__}</span>
+                </div>
                 <p className="text-sm text-slate-600">Tagger Dashboard</p>
               </div>
             </div>
@@ -124,7 +136,56 @@ export const TaggerDashboard = () => {
 
         <div className="space-y-6">
           <div className="bg-white rounded-2xl shadow-sm p-6">
-            <h2 className="text-lg font-bold text-slate-900 mb-4">My Files</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-slate-900">My Files</h2>
+            </div>
+
+            <div className="flex gap-2 flex-wrap mb-4">
+              <button
+                onClick={() => { setActiveTab('all'); setSelectedFile(null); }}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                  activeTab === 'all'
+                    ? 'bg-primary-800 text-white'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                }`}
+              >
+                <FileText className="w-3.5 h-3.5" />
+                All ({files.length})
+              </button>
+              <button
+                onClick={() => { setActiveTab('inprogress'); setSelectedFile(null); }}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                  activeTab === 'inprogress'
+                    ? 'bg-accent-teal-600 text-white'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                }`}
+              >
+                <Clock className="w-3.5 h-3.5" />
+                In Progress ({inProgressCount})
+              </button>
+              <button
+                onClick={() => { setActiveTab('needsrevision'); setSelectedFile(null); }}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                  activeTab === 'needsrevision'
+                    ? 'bg-amber-500 text-white'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                }`}
+              >
+                <AlertTriangle className="w-3.5 h-3.5" />
+                Needs Revision ({needsRevisionCount})
+              </button>
+              <button
+                onClick={() => { setActiveTab('completed'); setSelectedFile(null); }}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                  activeTab === 'completed'
+                    ? 'bg-green-600 text-white'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                }`}
+              >
+                <CheckCircle className="w-3.5 h-3.5" />
+                Completed ({completedCount})
+              </button>
+            </div>
 
             {loading ? (
               <div className="text-center py-8 text-slate-600">Loading files...</div>
@@ -133,9 +194,14 @@ export const TaggerDashboard = () => {
                 <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
                 <p className="text-slate-600">No files assigned</p>
               </div>
+            ) : filteredFiles.length === 0 ? (
+              <div className="text-center py-8">
+                <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                <p className="text-slate-600">No files in this category</p>
+              </div>
             ) : (
-              <div className="flex gap-2 overflow-x-auto pb-2">
-                {files.map((file) => (
+              <div className="flex flex-wrap gap-2">
+                {filteredFiles.map((file) => (
                   <button
                     key={file.id}
                     onClick={() => setSelectedFile(file)}
