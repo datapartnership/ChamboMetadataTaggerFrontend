@@ -51,6 +51,8 @@ export const FilesView = () => {
   const [showAssignFileModal, setShowAssignFileModal] = useState(false);
   const [showMultipleFilesModal, setShowMultipleFilesModal] = useState(false);
   const [selectedBlobNames, setSelectedBlobNames] = useState<Set<string>>(new Set());
+  const [selectedFileIds, setSelectedFileIds] = useState<Set<number>>(new Set());
+  const [showMultipleUnassignedModal, setShowMultipleUnassignedModal] = useState(false);
   const [previewFile, setPreviewFile] = useState<FileMetadataDto | null>(null);
   const [previewBlobName, setPreviewBlobName] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'assigned' | 'unassigned' | 'blobs'>('assigned');
@@ -162,6 +164,7 @@ export const FilesView = () => {
     const unassigned = allFiles.filter((f) => f.assignedToUserIds.length === 0);
     setUnassignedDirContents(buildFileDirContents(unassigned, dir));
     setUnassignedDir(dir);
+    setSelectedFileIds(new Set());
   };
 
   const goBackUnassigned = () => {
@@ -253,6 +256,33 @@ export const FilesView = () => {
     if (selectedBlobNames.size > 0) {
       setShowMultipleFilesModal(true);
     }
+  };
+
+  const handleToggleFileSelection = (fileId: number) => {
+    const newSelected = new Set(selectedFileIds);
+    if (newSelected.has(fileId)) {
+      newSelected.delete(fileId);
+    } else {
+      newSelected.add(fileId);
+    }
+    setSelectedFileIds(newSelected);
+  };
+
+  const handleSelectAllUnassignedFiles = () => {
+    const selectableFiles = unassignedDirContents.filter(
+      (item) => !('isDirectory' in item && item.isDirectory)
+    ) as FileMetadataDto[];
+    if (selectedFileIds.size === selectableFiles.length && selectableFiles.length > 0) {
+      setSelectedFileIds(new Set());
+    } else {
+      setSelectedFileIds(new Set(selectableFiles.map((f) => f.id)));
+    }
+  };
+
+  const handleAssignMultipleUnassignedSuccess = () => {
+    setShowMultipleUnassignedModal(false);
+    setSelectedFileIds(new Set());
+    loadData();
   };
 
   if (loading) {
@@ -465,9 +495,44 @@ export const FilesView = () => {
                   </span>
                 </div>
               )}
+
+              {/* Bulk Selection Toolbar */}
+              {selectedFileIds.size > 0 && (
+                <div className="p-4 border-b border-slate-200 bg-blue-50 flex items-center justify-between">
+                  <span className="text-sm font-medium text-blue-900">
+                    {selectedFileIds.size} item{selectedFileIds.size !== 1 ? 's' : ''} selected
+                  </span>
+                  <button
+                    onClick={() => setShowMultipleUnassignedModal(true)}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-primary-800 text-white text-sm rounded-lg hover:bg-primary-700 transition-colors"
+                  >
+                    <UserPlus className="w-4 h-4" />
+                    Assign Selected
+                  </button>
+                </div>
+              )}
+
               <table className="w-full">
                 <thead className="bg-slate-50 border-b border-slate-200">
                   <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">
+                      <button
+                        onClick={handleSelectAllUnassignedFiles}
+                        className="p-1 hover:bg-slate-200 rounded transition-colors"
+                        title={
+                          selectedFileIds.size === unassignedDirContents.filter((i) => !('isDirectory' in i && i.isDirectory)).length
+                            ? 'Deselect all'
+                            : 'Select all'
+                        }
+                      >
+                        {selectedFileIds.size === unassignedDirContents.filter((i) => !('isDirectory' in i && i.isDirectory)).length &&
+                        unassignedDirContents.filter((i) => !('isDirectory' in i && i.isDirectory)).length > 0 ? (
+                          <CheckCircle2 className="w-5 h-5 text-blue-600" />
+                        ) : (
+                          <Circle className="w-5 h-5 text-slate-400" />
+                        )}
+                      </button>
+                    </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">
                       File
                     </th>
@@ -487,7 +552,23 @@ export const FilesView = () => {
                     const isDir = 'isDirectory' in item && item.isDirectory;
                     const file = isDir ? null : (item as FileMetadataDto);
                     return (
-                      <tr key={index} className="hover:bg-slate-50 transition-colors">
+                      <tr key={index} className={`hover:bg-slate-50 transition-colors ${!isDir && selectedFileIds.has(file!.id) ? 'bg-blue-50' : ''}`}>
+                        <td className="px-6 py-4">
+                          {!isDir ? (
+                            <button
+                              onClick={() => handleToggleFileSelection(file!.id)}
+                              className="p-1 hover:bg-slate-200 rounded transition-colors"
+                            >
+                              {selectedFileIds.has(file!.id) ? (
+                                <CheckCircle2 className="w-5 h-5 text-blue-600" />
+                              ) : (
+                                <Circle className="w-5 h-5 text-slate-400" />
+                              )}
+                            </button>
+                          ) : (
+                            <div className="w-7" />
+                          )}
+                        </td>
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
                             {isDir ? (
@@ -752,6 +833,23 @@ export const FilesView = () => {
           taggers={taggers}
           onClose={() => setShowMultipleFilesModal(false)}
           onSuccess={handleAssignSuccess}
+        />
+      )}
+
+      {showMultipleUnassignedModal && selectedFileIds.size > 0 && (
+        <AssignMultipleFilesModal
+          selectedBlobs={allFiles
+            .filter((f) => selectedFileIds.has(f.id))
+            .map((f) => ({
+              blobName: f.blobName,
+              fileUrl: f.fileUrl,
+              fileSize: f.fileSize,
+              contentType: f.contentType,
+              lastModified: null,
+            }))}
+          taggers={taggers}
+          onClose={() => setShowMultipleUnassignedModal(false)}
+          onSuccess={handleAssignMultipleUnassignedSuccess}
         />
       )}
 
