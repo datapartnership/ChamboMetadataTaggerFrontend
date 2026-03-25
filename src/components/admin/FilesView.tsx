@@ -859,6 +859,8 @@ export const FilesView = () => {
           fileName={previewFile.fileName}
           getPreview={adminApi.getFilePreview}
           onClose={() => setPreviewFile(null)}
+          tags={previewFile.tags}
+          status={previewFile.status}
         />
       )}
 

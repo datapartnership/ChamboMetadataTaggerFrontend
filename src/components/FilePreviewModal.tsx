@@ -2,16 +2,18 @@ import { useState, useEffect } from 'react';
 import { X, ExternalLink, AlertCircle } from 'lucide-react';
 import { marked } from 'marked';
 import { useAuth } from '../context/AuthContext';
-import { FilePreviewDto } from '../types';
+import { FilePreviewDto, TagDto } from '../types';
 
 interface FilePreviewModalProps {
   fileId: number;
   fileName: string;
   getPreview: (token: string, fileId: number) => Promise<any>;
   onClose: () => void;
+  tags?: TagDto[];
+  status?: string;
 }
 
-export const FilePreviewModal = ({ fileId, fileName, getPreview, onClose }: FilePreviewModalProps) => {
+export const FilePreviewModal = ({ fileId, fileName, getPreview, onClose, tags, status }: FilePreviewModalProps) => {
   const { token } = useAuth();
   const [preview, setPreview] = useState<FilePreviewDto | null>(null);
   const [loading, setLoading] = useState(true);
@@ -167,6 +169,23 @@ export const FilePreviewModal = ({ fileId, fileName, getPreview, onClose }: File
             </div>
           )}
         </div>
+
+        {status === 'Completed' && tags && tags.length > 0 && (
+          <div className="p-6 border-t border-slate-200">
+            <h3 className="text-sm font-semibold text-slate-700 mb-3">Tags</h3>
+            <div className="flex flex-wrap gap-2">
+              {tags.map((tag, i) => (
+                <span
+                  key={i}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-primary-50 text-primary-800 border border-primary-200"
+                >
+                  <span className="font-semibold">{tag.tagKey}:</span>
+                  <span>{tag.tagValue}</span>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
 
         {preview && (
           <div className="p-4 border-t border-slate-200 bg-slate-50 text-xs text-slate-600">
