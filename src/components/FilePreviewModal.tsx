@@ -170,7 +170,7 @@ export const FilePreviewModal = ({ fileId, fileName, getPreview, onClose, tags, 
           )}
         </div>
 
-        {status === 'Completed' && tags && tags.length > 0 && (
+        {status === 'ApprovedBySupervisor' && tags && tags.length > 0 && (
           <div className="p-6 border-t border-slate-200">
             <h3 className="text-sm font-semibold text-slate-700 mb-3">Tags</h3>
             <div className="flex flex-wrap gap-2">

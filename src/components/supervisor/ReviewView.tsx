@@ -38,14 +38,14 @@ export const ReviewView = () => {
   };
 
   const applyFilter = () => {
-    let filtered = files.filter(f => f.status === 'Completed' || f.status === 'NeedsRevision');
+    let filtered = files.filter(f => f.status === 'SubmittedToSupervisor' || f.status === 'SendBackToTagger');
 
     if (filterStatus === 'unchecked') {
-      filtered = filtered.filter(f => f.status === 'Completed' && !f.isCheckedBySupervisor);
+      filtered = filtered.filter(f => f.status === 'SubmittedToSupervisor' && !f.isCheckedBySupervisor);
     } else if (filterStatus === 'checked') {
       filtered = filtered.filter(f => f.isCheckedBySupervisor);
     } else if (filterStatus === 'sentback') {
-      filtered = filtered.filter(f => f.status === 'NeedsRevision');
+      filtered = filtered.filter(f => f.status === 'SendBackToTagger');
     }
 
     setFilteredFiles(filtered);
@@ -139,7 +139,7 @@ export const ReviewView = () => {
             >
               <div className="flex items-start justify-between mb-3">
                 <FileText className="w-5 h-5 text-slate-600 flex-shrink-0" />
-                {file.status === 'NeedsRevision' ? (
+                {file.status === 'SendBackToTagger' ? (
                   <span className="text-xs px-2 py-1 bg-amber-100 text-amber-700 rounded-md flex items-center gap-1">
                     <RotateCcw className="w-3 h-3" />
                     Sent Back

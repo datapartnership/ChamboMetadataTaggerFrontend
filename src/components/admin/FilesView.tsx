@@ -427,7 +427,7 @@ export const FilesView = () => {
                         <td className="px-6 py-4">
                           {!isDir && (
                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium ${
-                              file!.status === 'Completed'
+                              file!.status === 'ApprovedBySupervisor'
                                 ? 'bg-green-100 text-green-800'
                                 : 'bg-accent-teal-100 text-blue-800'
                             }`}>

@@ -350,7 +350,7 @@ export const TagEditor = ({ file, onUpdate }: TagEditorProps) => {
               <Save className="w-4 h-4" />
               {saving ? 'Saving...' : 'Save'}
             </button>
-            {file.status !== 'Completed' && (
+            {file.status !== 'ApprovedBySupervisor' && file.status !== 'SubmittedToSupervisor' && (
               <button
                 onClick={handleComplete}
                 disabled={completing || !hasAnyTag}
@@ -364,7 +364,7 @@ export const TagEditor = ({ file, onUpdate }: TagEditorProps) => {
           </div>
         </div>
 
-      {file.status === 'NeedsRevision' && (
+      {file.status === 'SendBackToTagger' && (
         <div className="flex gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
           <RotateCcw className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
           <div>
@@ -405,13 +405,13 @@ export const TagEditor = ({ file, onUpdate }: TagEditorProps) => {
           <div>
             <p className="text-sm font-medium text-slate-700 mb-1">Status</p>
             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium ${
-              file.status === 'Completed'
+              file.status === 'ApprovedBySupervisor'
                 ? 'bg-green-100 text-green-800'
-                : file.status === 'NeedsRevision'
+                : file.status === 'SendBackToTagger'
                 ? 'bg-amber-100 text-amber-800'
                 : 'bg-accent-teal-100 text-blue-800'
             }`}>
-              {file.status === 'Completed' ? 'Completed' : file.status === 'NeedsRevision' ? 'Needs Revision' : 'In Progress'}
+              {file.status === 'ApprovedBySupervisor' ? 'Approved' : file.status === 'SendBackToTagger' ? 'Needs Revision' : 'Submitted to Supervisor'}
             </span>
           </div>
         </div>

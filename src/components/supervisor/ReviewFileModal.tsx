@@ -382,7 +382,7 @@ export const ReviewFileModal = ({ file, onClose, onReviewed }: ReviewFileModalPr
                 )}
               </div>
 
-              {!isEditingTags && !file.isCheckedBySupervisor && file.status !== 'NeedsRevision' && (
+              {!isEditingTags && !file.isCheckedBySupervisor && file.status !== 'SendBackToTagger' && (
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">
                     Review Notes (Optional)
@@ -397,7 +397,7 @@ export const ReviewFileModal = ({ file, onClose, onReviewed }: ReviewFileModalPr
                 </div>
               )}
 
-              {!isEditingTags && file.status !== 'NeedsRevision' && !isSendingBack && !file.isCheckedBySupervisor && (
+              {!isEditingTags && file.status !== 'SendBackToTagger' && !isSendingBack && !file.isCheckedBySupervisor && (
                 <div className="border border-amber-200 rounded-xl p-4 bg-amber-50">
                   <div className="flex items-center gap-2 mb-2">
                     <RotateCcw className="w-4 h-4 text-amber-600" />
@@ -449,7 +449,7 @@ export const ReviewFileModal = ({ file, onClose, onReviewed }: ReviewFileModalPr
                 </div>
               )}
 
-              {file.status === 'NeedsRevision' && (
+              {file.status === 'SendBackToTagger' && (
                 <div className="border border-amber-200 rounded-xl p-4 bg-amber-50">
                   <div className="flex items-center gap-2 mb-1">
                     <RotateCcw className="w-4 h-4 text-amber-600" />
@@ -594,7 +594,7 @@ export const ReviewFileModal = ({ file, onClose, onReviewed }: ReviewFileModalPr
               </>
             )}
 
-            {!isEditingTags && !isSendingBack && !file.isCheckedBySupervisor && file.status !== 'NeedsRevision' && (
+            {!isEditingTags && !isSendingBack && !file.isCheckedBySupervisor && file.status !== 'SendBackToTagger' && (
               <button
                 onClick={handleMarkAsChecked}
                 disabled={submitting}

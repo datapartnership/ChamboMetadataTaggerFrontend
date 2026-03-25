@@ -60,9 +60,9 @@ export const SupervisorDashboard = () => {
             const student = studentMap.get(file.studentId)!;
             student.totalAssigned++;
 
-            if (file.status === 'Completed' || file.status === 'Checked') {
+            if (file.status === 'ApprovedBySupervisor' || file.status === 'Checked') {
               student.totalCompleted++;
-            } else if (file.status === 'InProgress' || file.status === 'Assigned') {
+            } else if (file.status === 'SubmittedToSupervisor' || file.status === 'Assigned') {
               student.inProgress++;
             }
 

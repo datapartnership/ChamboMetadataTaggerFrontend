@@ -73,7 +73,7 @@ export const StudentsView = ({ students }: StudentsViewProps) => {
                         <p className="text-xs text-slate-500">{file.tags.length} tags</p>
                       </div>
                       <span className={`text-xs px-2 py-1 rounded-md ${
-                        file.status === 'Completed'
+                        file.status === 'ApprovedBySupervisor'
                           ? 'bg-green-100 text-green-700'
                           : 'bg-accent-teal-100 text-blue-700'
                       }`}>

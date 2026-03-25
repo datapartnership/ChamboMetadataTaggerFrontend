@@ -37,15 +37,15 @@ export const TaggerDashboard = () => {
     loadFiles();
   };
 
-  const completedCount = files.filter(f => f.status === 'Completed').length;
-  const inProgressCount = files.filter(f => f.status === 'InProgress').length;
-  const needsRevisionCount = files.filter(f => f.status === 'NeedsRevision').length;
+  const completedCount = files.filter(f => f.status === 'ApprovedBySupervisor').length;
+  const inProgressCount = files.filter(f => f.status === 'SubmittedToSupervisor').length;
+  const needsRevisionCount = files.filter(f => f.status === 'SendBackToTagger').length;
 
   const filteredFiles = files.filter((f) => {
     if (activeTab === 'all') return true;
-    if (activeTab === 'inprogress') return f.status === 'InProgress';
-    if (activeTab === 'needsrevision') return f.status === 'NeedsRevision';
-    if (activeTab === 'completed') return f.status === 'Completed';
+    if (activeTab === 'inprogress') return f.status === 'SubmittedToSupervisor';
+    if (activeTab === 'needsrevision') return f.status === 'SendBackToTagger';
+    if (activeTab === 'completed') return f.status === 'ApprovedBySupervisor';
     return true;
   });
 
@@ -222,11 +222,11 @@ export const TaggerDashboard = () => {
                           {file.fileName}
                         </p>
                     <div className="flex items-center gap-2 mt-1">
-                          {file.status === 'NeedsRevision' ? (
+                          {file.status === 'SendBackToTagger' ? (
                             <AlertTriangle className={`w-3 h-3 ${
                               selectedFile?.id === file.id ? 'text-amber-300' : 'text-amber-500'
                             }`} />
-                          ) : file.status === 'Completed' ? (
+                          ) : file.status === 'ApprovedBySupervisor' ? (
                             <CheckCircle className={`w-3 h-3 ${
                               selectedFile?.id === file.id ? 'text-green-300' : 'text-green-600'
                             }`} />
@@ -238,7 +238,7 @@ export const TaggerDashboard = () => {
                           <span className={`text-xs ${
                             selectedFile?.id === file.id ? 'text-slate-300' : 'text-slate-500'
                           }`}>
-                            {file.status === 'NeedsRevision' ? 'Needs Revision' : `${file.tags.length} tag${file.tags.length !== 1 ? 's' : ''}`}
+                            {file.status === 'SendBackToTagger' ? 'Needs Revision' : `${file.tags.length} tag${file.tags.length !== 1 ? 's' : ''}`}
                           </span>
                         </div>
                       </div>
