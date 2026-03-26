@@ -71,7 +71,10 @@ export interface TaggingProgressDto {
   userId: number;
   username: string;
   totalAssigned: number;
-  totalCompleted: number;
+  totalInProgress: number;
+  totalSubmitted: number;
+  totalSentBack: number;
+  totalApproved: number;
   completedFiles: CompletedFileDto[];
 }
 

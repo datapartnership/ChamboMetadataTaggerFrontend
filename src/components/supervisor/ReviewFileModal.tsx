@@ -25,6 +25,9 @@ export const ReviewFileModal = ({ file, onClose, onReviewed }: ReviewFileModalPr
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  // Fresh tags fetched from backend
+  const [freshTags, setFreshTags] = useState<TagDto[]>(file.tags);
+
   // Tag editing state
   const [isEditingTags, setIsEditingTags] = useState(false);
   const [editableTags, setEditableTags] = useState<TagDto[]>([]);
@@ -42,7 +45,21 @@ export const ReviewFileModal = ({ file, onClose, onReviewed }: ReviewFileModalPr
 
   useEffect(() => {
     loadPreview();
+    fetchFreshTags();
   }, [file.fileId]);
+
+  const fetchFreshTags = async () => {
+    if (!token) return;
+    try {
+      const response = await supervisorApi.getStudentFiles(token, file.studentId);
+      if (response.success) {
+        const latest = response.data.find(f => f.fileId === file.fileId);
+        if (latest) setFreshTags(latest.tags);
+      }
+    } catch {
+      // keep file.tags as fallback
+    }
+  };
 
   const loadPreview = async () => {
     if (!token) return;
@@ -107,9 +124,9 @@ export const ReviewFileModal = ({ file, onClose, onReviewed }: ReviewFileModalPr
   };
 
   const handleStartEditTags = () => {
-    const keywordsTag = file.tags.find(t => t.tagKey === 'Keywords');
-    const themeTag = file.tags.find(t => t.tagKey === 'Theme');
-    setEditableTags(file.tags.filter(t => t.tagKey !== 'Keywords' && t.tagKey !== 'Theme').map(t => ({ ...t })));
+    const keywordsTag = freshTags.find(t => t.tagKey === 'Keywords');
+    const themeTag = freshTags.find(t => t.tagKey === 'Theme');
+    setEditableTags(freshTags.filter(t => t.tagKey !== 'Keywords' && t.tagKey !== 'Theme').map(t => ({ ...t })));
     setKeywords(keywordsTag?.tagValue ? keywordsTag.tagValue.split(',').map(k => k.trim()).filter(k => k) : []);
     setSelectedThemes(themeTag?.tagValue ? themeTag.tagValue.split(' | ').map(themeStr => {
       const parts = themeStr.split(' > ');
@@ -367,11 +384,11 @@ export const ReviewFileModal = ({ file, onClose, onReviewed }: ReviewFileModalPr
                     </div>
                   </div>
                 ) : (
-                  file.tags.length === 0 ? (
+                  freshTags.length === 0 ? (
                     <p className="text-sm text-slate-600">No tags added</p>
                   ) : (
                     <div className="space-y-2">
-                      {file.tags.map((tag, index) => (
+                      {freshTags.map((tag, index) => (
                         <div key={index} className="bg-white rounded-lg p-3">
                           <div className="text-xs font-medium text-slate-600 mb-1">{tag.tagKey}</div>
                           <div className="text-sm text-slate-900">{tag.tagValue}</div>
@@ -489,15 +506,6 @@ export const ReviewFileModal = ({ file, onClose, onReviewed }: ReviewFileModalPr
               <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-white">
                 <h3 className="font-semibold text-slate-900">File Preview</h3>
                 {preview?.previewUrl && (
-                  <a
-                    href={preview.previewUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
-                    title="Open in new tab"
-                  >
-                    <ExternalLink className="w-4 h-4 text-slate-600" />
-                  </a>
                 )}
               </div>
 

@@ -81,15 +81,6 @@ export const FilePreviewModal = ({ fileId, fileName, getPreview, onClose, tags, 
           </div>
           <div className="flex items-center gap-2 ml-4">
             {preview?.previewUrl && (
-              <a
-                href={preview.previewUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
-                title="Open in new tab"
-              >
-                <ExternalLink className="w-5 h-5 text-slate-600" />
-              </a>
             )}
             <button
               onClick={onClose}
@@ -170,7 +161,7 @@ export const FilePreviewModal = ({ fileId, fileName, getPreview, onClose, tags, 
           )}
         </div>
 
-        {status === 'ApprovedBySupervisor' && tags && tags.length > 0 && (
+        {tags && tags.length > 0 && (
           <div className="p-6 border-t border-slate-200">
             <h3 className="text-sm font-semibold text-slate-700 mb-3">Tags</h3>
             <div className="flex flex-wrap gap-2">

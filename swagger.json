@@ -2526,7 +2526,19 @@
             "type": "integer",
             "format": "int32"
           },
-          "totalCompleted": {
+          "totalInProgress": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalSubmitted": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalSentBack": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalApproved": {
             "type": "integer",
             "format": "int32"
           },

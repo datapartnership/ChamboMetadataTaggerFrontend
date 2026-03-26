@@ -209,6 +209,16 @@ export const FilesView = () => {
     return (bytes / 1048576).toFixed(1) + ' MB';
   };
 
+  const handlePreviewFile = async (file: FileMetadataDto) => {
+    if (!token) return;
+    try {
+      const response = await adminApi.getFile(token, file.id);
+      setPreviewFile(response.success ? response.data : file);
+    } catch {
+      setPreviewFile(file);
+    }
+  };
+
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'N/A';
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -429,9 +439,17 @@ export const FilesView = () => {
                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium ${
                               file!.status === 'ApprovedBySupervisor'
                                 ? 'bg-green-100 text-green-800'
-                                : 'bg-accent-teal-100 text-blue-800'
+                                : file!.status === 'SubmittedToSupervisor'
+                                ? 'bg-blue-100 text-blue-800'
+                                : file!.status === 'SendBackToTagger'
+                                ? 'bg-amber-100 text-amber-800'
+                                : 'bg-slate-100 text-slate-700'
                             }`}>
-                              {file!.status}
+                              {file!.status === 'ApprovedBySupervisor' ? 'Approved'
+                                : file!.status === 'SubmittedToSupervisor' ? 'Submitted'
+                                : file!.status === 'SendBackToTagger' ? 'Sent Back'
+                                : file!.status === 'Assigned' ? 'Assigned'
+                                : file!.status}
                             </span>
                           )}
                         </td>
@@ -459,7 +477,7 @@ export const FilesView = () => {
                         <td className="px-6 py-4 text-right">
                           {!isDir && (
                             <button
-                              onClick={() => setPreviewFile(file!)}
+                              onClick={() => handlePreviewFile(file!)}
                               className="inline-flex items-center gap-1 px-3 py-1 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
                             >
                               <Eye className="w-3 h-3" />
@@ -604,7 +622,7 @@ export const FilesView = () => {
                           {!isDir && (
                             <div className="flex items-center justify-end gap-2">
                               <button
-                                onClick={() => setPreviewFile(file!)}
+                                onClick={() => handlePreviewFile(file!)}
                                 className="inline-flex items-center gap-1 px-3 py-1 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
                               >
                                 <Eye className="w-3 h-3" />

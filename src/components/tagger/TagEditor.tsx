@@ -223,16 +223,43 @@ export const TagEditor = ({ file, onUpdate }: TagEditorProps) => {
       setMessage({ type: 'error', text: 'Please add at least one tag before marking as complete.' });
       return;
     }
-    if (!confirm('Mark this file as completed?')) return;
+    if (!confirm('Submit this file to supervisor?')) return;
 
     setCompleting(true);
     setMessage(null);
 
     try {
+      const tags: TagDto[] = PREDEFINED_TAGS
+        .filter(key => key !== 'Keywords' && tagValues[key]?.trim())
+        .map(key => ({
+          tagKey: key,
+          tagValue: tagValues[key].trim()
+        }));
+
+      if (keywords.length > 0) {
+        tags.push({
+          tagKey: 'Keywords',
+          tagValue: keywords.join(', ')
+        });
+      }
+
+      if (selectedThemes.length > 0) {
+        tags.push({
+          tagKey: 'Theme',
+          tagValue: selectedThemes.map(theme => formatThemeDisplay(theme)).join(' | ')
+        });
+      }
+
+      const saveResponse = await taggerApi.addTags(token, file.id, { tags });
+      if (!saveResponse.success) {
+        setMessage({ type: 'error', text: saveResponse.message || 'Failed to save tags' });
+        return;
+      }
+
       const response = await taggerApi.completeFile(token, file.id);
 
       if (response.success) {
-        setMessage({ type: 'success', text: 'File marked as completed!' });
+        setMessage({ type: 'success', text: 'File submitted to supervisor!' });
         setTimeout(() => onUpdate(), 1500);
       } else {
         setMessage({ type: 'error', text: response.message || 'Failed to complete file' });
@@ -243,6 +270,8 @@ export const TagEditor = ({ file, onUpdate }: TagEditorProps) => {
       setCompleting(false);
     }
   };
+
+  const canTag = file.status === 'Assigned' || file.status === 'SendBackToTagger';
 
   const isImage = preview?.contentType?.startsWith('image/');
   const isPdf = preview?.contentType === 'application/pdf';
@@ -257,15 +286,6 @@ export const TagEditor = ({ file, onUpdate }: TagEditorProps) => {
         <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
           <h3 className="font-semibold text-slate-900">File Preview</h3>
           {preview?.previewUrl && (
-            <a
-              href={preview.previewUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="p-2 hover:bg-slate-200 rounded-lg transition-colors"
-              title="Open in new tab"
-            >
-              <ExternalLink className="w-4 h-4 text-slate-600" />
-            </a>
           )}
         </div>
 
@@ -343,22 +363,22 @@ export const TagEditor = ({ file, onUpdate }: TagEditorProps) => {
           <div className="flex items-center gap-2">
             <button
               onClick={handleSave}
-              disabled={saving || !hasAnyTag}
-              title={!hasAnyTag ? 'Add at least one tag before saving' : undefined}
+              disabled={saving || !hasAnyTag || !canTag}
+              title={!canTag ? 'File cannot be edited in its current status' : !hasAnyTag ? 'Add at least one tag before saving' : undefined}
               className="flex items-center gap-2 px-3 py-2 bg-primary-800 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
             >
               <Save className="w-4 h-4" />
               {saving ? 'Saving...' : 'Save'}
             </button>
-            {file.status !== 'ApprovedBySupervisor' && file.status !== 'SubmittedToSupervisor' && (
+            {canTag && (
               <button
                 onClick={handleComplete}
                 disabled={completing || !hasAnyTag}
-                title={!hasAnyTag ? 'Add at least one tag before completing' : undefined}
+                title={!hasAnyTag ? 'Add at least one tag before submitting' : undefined}
                 className="flex items-center gap-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
               >
                 <CheckCircle className="w-4 h-4" />
-                {completing ? 'Completing...' : 'Complete'}
+                {completing ? 'Submitting...' : 'Submit to Supervisor'}
               </button>
             )}
           </div>
@@ -375,6 +395,15 @@ export const TagEditor = ({ file, onUpdate }: TagEditorProps) => {
               <p className="text-sm text-amber-700 mt-1 italic">No notes provided by supervisor.</p>
             )}
           </div>
+        </div>
+      )}
+
+      {!canTag && (
+        <div className="flex gap-3 p-4 bg-slate-100 border border-slate-200 rounded-xl">
+          <AlertCircle className="w-5 h-5 text-slate-500 flex-shrink-0 mt-0.5" />
+          <p className="text-sm text-slate-600">
+            This file is read-only. Tagging is only available when the file status is <strong>In Progress</strong> or <strong>Sent Back</strong>.
+          </p>
         </div>
       )}
 
@@ -441,7 +470,8 @@ export const TagEditor = ({ file, onUpdate }: TagEditorProps) => {
                         <button
                           type="button"
                           onClick={() => removeKeyword(keyword)}
-                          className="ml-1 hover:bg-primary-700 rounded-full p-0.5 transition-colors"
+                          disabled={!canTag}
+                          className="ml-1 hover:bg-primary-700 rounded-full p-0.5 transition-colors disabled:pointer-events-none"
                         >
                           <X className="w-3.5 h-3.5" />
                         </button>
@@ -453,7 +483,9 @@ export const TagEditor = ({ file, onUpdate }: TagEditorProps) => {
                       value={keywordInput}
                       onChange={(e) => setKeywordInput(e.target.value)}
                       onKeyDown={handleKeywordKeyDown}
-                      className="flex-1 min-w-[120px] outline-none bg-transparent text-slate-900 placeholder-slate-400"
+                      disabled={!canTag}
+                      readOnly={!canTag}
+                      className="flex-1 min-w-[120px] outline-none bg-transparent text-slate-900 placeholder-slate-400 disabled:cursor-not-allowed"
                       placeholder={keywords.length === 0 ? "Type keyword and press Enter..." : "Add more..."}
                     />
                   </div>
@@ -466,7 +498,9 @@ export const TagEditor = ({ file, onUpdate }: TagEditorProps) => {
                   type="text"
                   value={tagValues[tagKey]}
                   onChange={(e) => updateTagValue(tagKey, e.target.value)}
-                  className="w-full px-4 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-700 focus:border-transparent"
+                  disabled={!canTag}
+                  readOnly={!canTag}
+                  className="w-full px-4 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-700 focus:border-transparent disabled:bg-slate-50 disabled:cursor-not-allowed"
                   placeholder={`Enter ${tagKey.toLowerCase()}`}
                 />
               )}
@@ -482,6 +516,7 @@ export const TagEditor = ({ file, onUpdate }: TagEditorProps) => {
               selectedThemes={selectedThemes}
               onChange={setSelectedThemes}
               maxThemes={MAX_THEMES}
+              disabled={!canTag}
             />
           </div>
         </div>

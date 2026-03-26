@@ -65,7 +65,7 @@ export const ReviewView = () => {
       <div className="text-center py-12">
         <FileText className="w-16 h-16 text-slate-300 mx-auto mb-4" />
         <h3 className="text-lg font-medium text-slate-900 mb-2">No Files to Review</h3>
-        <p className="text-slate-600">Your students haven't completed any files yet.</p>
+        <p className="text-slate-600">Your students haven't submitted any files yet.</p>
       </div>
     );
   }
@@ -85,7 +85,7 @@ export const ReviewView = () => {
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
               }`}
             >
-              All Completed
+              All Submitted
             </button>
             <button
               onClick={() => setFilterStatus('unchecked')}

@@ -6,9 +6,10 @@ interface ThemeSelectorProps {
   selectedThemes: SelectedTheme[];
   onChange: (themes: SelectedTheme[]) => void;
   maxThemes?: number;
+  disabled?: boolean;
 }
 
-export const ThemeSelector = ({ selectedThemes, onChange, maxThemes = 3 }: ThemeSelectorProps) => {
+export const ThemeSelector = ({ selectedThemes, onChange, maxThemes = 3, disabled = false }: ThemeSelectorProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [expandedLevel1, setExpandedLevel1] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -84,8 +85,8 @@ export const ThemeSelector = ({ selectedThemes, onChange, maxThemes = 3 }: Theme
     <div className="relative" ref={dropdownRef}>
       {/* Selected themes display */}
       <div 
-        className="min-h-[44px] p-3 bg-white border border-slate-200 rounded-lg cursor-pointer focus-within:ring-2 focus-within:ring-primary-700 focus-within:border-transparent"
-        onClick={() => setIsOpen(!isOpen)}
+        className={`min-h-[44px] p-3 bg-white border border-slate-200 rounded-lg focus-within:ring-2 focus-within:ring-primary-700 focus-within:border-transparent ${disabled ? 'bg-slate-50 cursor-not-allowed' : 'cursor-pointer'}`}
+        onClick={() => !disabled && setIsOpen(!isOpen)}
       >
         {selectedThemes.length === 0 ? (
           <span className="text-slate-400">Select themes from UNBIS Thesaurus...</span>
@@ -101,9 +102,10 @@ export const ThemeSelector = ({ selectedThemes, onChange, maxThemes = 3 }: Theme
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleRemoveTheme(theme);
+                    if (!disabled) handleRemoveTheme(theme);
                   }}
-                  className="ml-1 hover:bg-primary-700 rounded-full p-0.5 transition-colors"
+                  disabled={disabled}
+                  className="ml-1 hover:bg-primary-700 rounded-full p-0.5 transition-colors disabled:pointer-events-none"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -115,7 +117,7 @@ export const ThemeSelector = ({ selectedThemes, onChange, maxThemes = 3 }: Theme
       </div>
 
       {/* Dropdown menu */}
-      {isOpen && (
+      {isOpen && !disabled && (
         <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-80 overflow-y-auto">
           {UNBIS_THESAURUS.map((level1) => (
             <div key={level1.code} className="border-b border-slate-100 last:border-b-0">

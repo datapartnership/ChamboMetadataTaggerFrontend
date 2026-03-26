@@ -80,15 +80,6 @@ export const BlobPreviewModal = ({ blobName, getPreview, onClose }: BlobPreviewM
           </div>
           <div className="flex items-center gap-2 ml-4">
             {preview?.previewUrl && (
-              <a
-                href={preview.previewUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
-                title="Open in new tab"
-              >
-                <ExternalLink className="w-5 h-5 text-slate-600" />
-              </a>
             )}
             <button
               onClick={onClose}

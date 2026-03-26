@@ -10,7 +10,7 @@ export const TaggerDashboard = () => {
   const [files, setFiles] = useState<FileMetadataDto[]>([]);
   const [selectedFile, setSelectedFile] = useState<FileMetadataDto | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'all' | 'inprogress' | 'needsrevision' | 'completed'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'inprogress' | 'submitted' | 'needsrevision' | 'completed'>('all');
 
   useEffect(() => {
     loadFiles();
@@ -32,18 +32,30 @@ export const TaggerDashboard = () => {
     }
   };
 
+  const handleFileSelect = async (file: FileMetadataDto) => {
+    if (!token) return;
+    try {
+      const response = await taggerApi.getFile(token, file.id);
+      setSelectedFile(response.success ? response.data : file);
+    } catch {
+      setSelectedFile(file);
+    }
+  };
+
   const handleFileUpdate = () => {
     setSelectedFile(null);
     loadFiles();
   };
 
   const completedCount = files.filter(f => f.status === 'ApprovedBySupervisor').length;
-  const inProgressCount = files.filter(f => f.status === 'SubmittedToSupervisor').length;
+  const inProgressCount = files.filter(f => f.status === 'Assigned').length;
+  const submittedCount = files.filter(f => f.status === 'SubmittedToSupervisor').length;
   const needsRevisionCount = files.filter(f => f.status === 'SendBackToTagger').length;
 
   const filteredFiles = files.filter((f) => {
     if (activeTab === 'all') return true;
-    if (activeTab === 'inprogress') return f.status === 'SubmittedToSupervisor';
+    if (activeTab === 'inprogress') return f.status === 'Assigned';
+    if (activeTab === 'submitted') return f.status === 'SubmittedToSupervisor';
     if (activeTab === 'needsrevision') return f.status === 'SendBackToTagger';
     if (activeTab === 'completed') return f.status === 'ApprovedBySupervisor';
     return true;
@@ -116,7 +128,7 @@ export const TaggerDashboard = () => {
                   needsRevisionCount > 0 ? 'text-amber-600' : 'text-slate-400'
                 }`} />
               </div>
-              <h3 className="text-sm font-medium text-slate-600">Needs Revision</h3>
+              <h3 className="text-sm font-medium text-slate-600">Sent Back</h3>
             </div>
             <p className={`text-3xl font-bold ${
               needsRevisionCount > 0 ? 'text-amber-600' : 'text-slate-900'
@@ -128,7 +140,7 @@ export const TaggerDashboard = () => {
               <div className="w-10 h-10 bg-accent-orange-100 rounded-lg flex items-center justify-center">
                 <CheckCircle className="w-5 h-5 text-accent-orange-600" />
               </div>
-              <h3 className="text-sm font-medium text-slate-600">Completed</h3>
+              <h3 className="text-sm font-medium text-slate-600">Approved</h3>
             </div>
             <p className="text-3xl font-bold text-slate-900">{completedCount}</p>
           </div>
@@ -164,6 +176,17 @@ export const TaggerDashboard = () => {
                 In Progress ({inProgressCount})
               </button>
               <button
+                onClick={() => { setActiveTab('submitted'); setSelectedFile(null); }}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                  activeTab === 'submitted'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                }`}
+              >
+                <CheckCircle className="w-3.5 h-3.5" />
+                Submitted ({submittedCount})
+              </button>
+              <button
                 onClick={() => { setActiveTab('needsrevision'); setSelectedFile(null); }}
                 className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
                   activeTab === 'needsrevision'
@@ -172,7 +195,7 @@ export const TaggerDashboard = () => {
                 }`}
               >
                 <AlertTriangle className="w-3.5 h-3.5" />
-                Needs Revision ({needsRevisionCount})
+                Sent Back ({needsRevisionCount})
               </button>
               <button
                 onClick={() => { setActiveTab('completed'); setSelectedFile(null); }}
@@ -183,7 +206,7 @@ export const TaggerDashboard = () => {
                 }`}
               >
                 <CheckCircle className="w-3.5 h-3.5" />
-                Completed ({completedCount})
+                Approved ({completedCount})
               </button>
             </div>
 
@@ -204,7 +227,7 @@ export const TaggerDashboard = () => {
                 {filteredFiles.map((file) => (
                   <button
                     key={file.id}
-                    onClick={() => setSelectedFile(file)}
+                    onClick={() => handleFileSelect(file)}
                     className={`flex-shrink-0 p-4 rounded-xl transition-all hover:shadow-md min-w-[200px] ${
                       selectedFile?.id === file.id
                         ? 'bg-primary-800 text-white shadow-lg'
@@ -230,6 +253,10 @@ export const TaggerDashboard = () => {
                             <CheckCircle className={`w-3 h-3 ${
                               selectedFile?.id === file.id ? 'text-green-300' : 'text-green-600'
                             }`} />
+                          ) : file.status === 'SubmittedToSupervisor' ? (
+                            <CheckCircle className={`w-3 h-3 ${
+                              selectedFile?.id === file.id ? 'text-blue-300' : 'text-blue-500'
+                            }`} />
                           ) : (
                             <Clock className={`w-3 h-3 ${
                               selectedFile?.id === file.id ? 'text-blue-300' : 'text-accent-teal-600'
@@ -238,7 +265,7 @@ export const TaggerDashboard = () => {
                           <span className={`text-xs ${
                             selectedFile?.id === file.id ? 'text-slate-300' : 'text-slate-500'
                           }`}>
-                            {file.status === 'SendBackToTagger' ? 'Needs Revision' : `${file.tags.length} tag${file.tags.length !== 1 ? 's' : ''}`}
+                            {file.status === 'SendBackToTagger' ? 'Needs Revision' : file.status === 'SubmittedToSupervisor' ? 'Submitted' : `${file.tags.length} tag${file.tags.length !== 1 ? 's' : ''}`}
                           </span>
                         </div>
                       </div>

@@ -165,7 +165,7 @@ export const SupervisorDashboard = () => {
               <div className="w-10 h-10 bg-accent-teal-100 rounded-lg flex items-center justify-center">
                 <Clock className="w-5 h-5 text-accent-teal-600" />
               </div>
-              <h3 className="text-sm font-medium text-slate-600">In Progress</h3>
+              <h3 className="text-sm font-medium text-slate-600">Submitted to Supervisor</h3>
             </div>
             <p className="text-3xl font-bold text-slate-900">{totalInProgress}</p>
           </div>
@@ -175,7 +175,7 @@ export const SupervisorDashboard = () => {
               <div className="w-10 h-10 bg-accent-orange-100 rounded-lg flex items-center justify-center">
                 <CheckCircle className="w-5 h-5 text-accent-orange-600" />
               </div>
-              <h3 className="text-sm font-medium text-slate-600">Completed</h3>
+              <h3 className="text-sm font-medium text-slate-600">Approved</h3>
             </div>
             <p className="text-3xl font-bold text-slate-900">{totalCompleted}</p>
           </div>
