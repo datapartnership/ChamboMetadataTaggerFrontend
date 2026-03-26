@@ -285,8 +285,6 @@ export const TagEditor = ({ file, onUpdate }: TagEditorProps) => {
       <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
         <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
           <h3 className="font-semibold text-slate-900">File Preview</h3>
-          {preview?.previewUrl && (
-          )}
         </div>
 
         <div className="p-4 h-[calc(100vh-320px)] overflow-auto">

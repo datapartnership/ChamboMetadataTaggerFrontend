@@ -80,8 +80,6 @@ export const FilePreviewModal = ({ fileId, fileName, getPreview, onClose, tags, 
             )}
           </div>
           <div className="flex items-center gap-2 ml-4">
-            {preview?.previewUrl && (
-            )}
             <button
               onClick={onClose}
               className="p-2 hover:bg-slate-100 rounded-lg transition-colors"

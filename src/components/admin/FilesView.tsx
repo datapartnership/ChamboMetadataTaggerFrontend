@@ -60,6 +60,7 @@ export const FilesView = () => {
   const [directoryContents, setDirectoryContents] = useState<BlobFileDto[]>([]);
   const [assignedDir, setAssignedDir] = useState<string>('');
   const [assignedDirContents, setAssignedDirContents] = useState<FileDirItem[]>([]);
+  const [assignedStatusFilter, setAssignedStatusFilter] = useState<string>('all');
   const [unassignedDir, setUnassignedDir] = useState<string>('');
   const [unassignedDirContents, setUnassignedDirContents] = useState<FileDirItem[]>([]);
 
@@ -90,6 +91,7 @@ export const FilesView = () => {
         setAssignedDirContents(buildFileDirContents(assigned, ''));
         setUnassignedDirContents(buildFileDirContents(unassigned, ''));
         setAssignedDir('');
+        setAssignedStatusFilter('all');
         setUnassignedDir('');
       }
       if (taggersRes.success) setTaggers(taggersRes.data);
@@ -147,8 +149,15 @@ export const FilesView = () => {
     navigateToDirectory(parent);
   };
 
-  const navigateToAssignedDir = (dir: string) => {
-    const assigned = allFiles.filter((f) => f.assignedToUserIds.length > 0);
+  const getFilteredAssigned = (statusFilter: string) =>
+    allFiles.filter(
+      (f) =>
+        f.assignedToUserIds.length > 0 &&
+        (statusFilter === 'all' || f.status === statusFilter)
+    );
+
+  const navigateToAssignedDir = (dir: string, statusFilter = assignedStatusFilter) => {
+    const assigned = getFilteredAssigned(statusFilter);
     setAssignedDirContents(buildFileDirContents(assigned, dir));
     setAssignedDir(dir);
   };
@@ -158,6 +167,12 @@ export const FilesView = () => {
     const parts = assignedDir.slice(0, -1).split('/').filter((p) => p);
     const parent = parts.slice(0, -1).join('/') + (parts.length > 1 ? '/' : '');
     navigateToAssignedDir(parent);
+  };
+
+  const handleAssignedStatusFilter = (status: string) => {
+    setAssignedStatusFilter(status);
+    setAssignedDir('');
+    navigateToAssignedDir('', status);
   };
 
   const navigateToUnassignedDir = (dir: string) => {
@@ -364,6 +379,48 @@ export const FilesView = () => {
         <div className="overflow-x-auto">
           {activeTab === 'assigned' ? (
             <>
+              {/* Status Filter */}
+              <div className="p-4 border-b border-slate-200 bg-white flex flex-wrap items-center gap-2">
+                <span className="text-xs font-medium text-slate-500 uppercase tracking-wider mr-1">Filter:</span>
+                {([
+                  { value: 'all', label: 'All' },
+                  { value: 'Assigned', label: 'Assigned' },
+                  { value: 'SubmittedToSupervisor', label: 'Submitted' },
+                  { value: 'SendBackToTagger', label: 'Sent Back' },
+                  { value: 'ApprovedBySupervisor', label: 'Approved' },
+                ] as const).map(({ value, label }) => (
+                  <button
+                    key={value}
+                    onClick={() => handleAssignedStatusFilter(value)}
+                    className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                      assignedStatusFilter === value
+                        ? value === 'all'
+                          ? 'bg-slate-700 text-white'
+                          : value === 'ApprovedBySupervisor'
+                          ? 'bg-green-600 text-white'
+                          : value === 'SubmittedToSupervisor'
+                          ? 'bg-blue-600 text-white'
+                          : value === 'SendBackToTagger'
+                          ? 'bg-amber-500 text-white'
+                          : 'bg-slate-600 text-white'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    {label}
+                    {value !== 'all' && (
+                      <span className="ml-1 opacity-75">
+                        ({allFiles.filter((f) => f.assignedToUserIds.length > 0 && f.status === value).length})
+                      </span>
+                    )}
+                    {value === 'all' && (
+                      <span className="ml-1 opacity-75">
+                        ({allFiles.filter((f) => f.assignedToUserIds.length > 0).length})
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+
               {assignedDir !== '' && (
                 <div className="p-4 border-b border-slate-200 bg-slate-50 flex items-center gap-2">
                   <button

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, CheckCircle, AlertCircle, ExternalLink, User, Calendar, Tag as TagIcon, Edit2, RotateCcw, Plus, Trash2 } from 'lucide-react';
+import { X, CheckCircle, AlertCircle, ExternalLink, User, Calendar, Tag as TagIcon, Edit2, RotateCcw, Trash2 } from 'lucide-react';
 import { marked } from 'marked';
 import { useAuth } from '../../context/AuthContext';
 import { supervisorApi } from '../../services/api';
@@ -126,7 +126,15 @@ export const ReviewFileModal = ({ file, onClose, onReviewed }: ReviewFileModalPr
   const handleStartEditTags = () => {
     const keywordsTag = freshTags.find(t => t.tagKey === 'Keywords');
     const themeTag = freshTags.find(t => t.tagKey === 'Theme');
-    setEditableTags(freshTags.filter(t => t.tagKey !== 'Keywords' && t.tagKey !== 'Theme').map(t => ({ ...t })));
+    const dedupeMap = new Map<string, TagDto>();
+    freshTags
+      .filter(t => t.tagKey !== 'Keywords' && t.tagKey !== 'Theme')
+      .forEach(t => {
+        if (!dedupeMap.has(t.tagKey)) {
+          dedupeMap.set(t.tagKey, { ...t });
+        }
+      });
+    setEditableTags([...dedupeMap.values()]);
     setKeywords(keywordsTag?.tagValue ? keywordsTag.tagValue.split(',').map(k => k.trim()).filter(k => k) : []);
     setSelectedThemes(themeTag?.tagValue ? themeTag.tagValue.split(' | ').map(themeStr => {
       const parts = themeStr.split(' > ');
@@ -289,17 +297,9 @@ export const ReviewFileModal = ({ file, onClose, onReviewed }: ReviewFileModalPr
                     {/* Other tags */}
                     {editableTags.map((tag, index) => (
                       <div key={index} className="flex gap-2 items-start">
-                        <input
-                          type="text"
-                          value={tag.tagKey}
-                          onChange={(e) => {
-                            const updated = [...editableTags];
-                            updated[index] = { ...updated[index], tagKey: e.target.value };
-                            setEditableTags(updated);
-                          }}
-                          className="w-1/3 px-2 py-1 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary-700"
-                          placeholder="Key"
-                        />
+                        <span className="w-1/3 px-2 py-1 text-xs font-medium text-slate-600 bg-slate-100 border border-slate-200 rounded-lg">
+                          {tag.tagKey}
+                        </span>
                         <textarea
                           value={tag.tagValue}
                           onChange={(e) => {
@@ -311,21 +311,8 @@ export const ReviewFileModal = ({ file, onClose, onReviewed }: ReviewFileModalPr
                           placeholder="Value"
                           rows={2}
                         />
-                        <button
-                          onClick={() => setEditableTags(editableTags.filter((_, i) => i !== index))}
-                          className="p-1 text-red-500 hover:bg-red-50 rounded transition-colors"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </button>
                       </div>
                     ))}
-                    <button
-                      onClick={() => setEditableTags([...editableTags, { tagKey: '', tagValue: '' }])}
-                      className="flex items-center gap-1 text-xs text-primary-700 hover:bg-primary-50 px-2 py-1 rounded-lg transition-colors"
-                    >
-                      <Plus className="w-3 h-3" />
-                      Add Tag
-                    </button>
 
                     {/* Keywords */}
                     <div>
@@ -505,8 +492,6 @@ export const ReviewFileModal = ({ file, onClose, onReviewed }: ReviewFileModalPr
             <div className="bg-slate-50 rounded-xl overflow-hidden">
               <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-white">
                 <h3 className="font-semibold text-slate-900">File Preview</h3>
-                {preview?.previewUrl && (
-                )}
               </div>
 
               <div className="p-4 h-[500px] overflow-auto">
