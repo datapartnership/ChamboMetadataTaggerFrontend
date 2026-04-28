@@ -16,8 +16,7 @@ const buildFileDirContents = (files: FileMetadataDto[], directory: string): File
     const relativePath = file.blobName.startsWith(directory)
       ? file.blobName.slice(directory.length)
       : '';
-    const isInCurrentDir = !relativePath.includes('/') || relativePath.split('/').length <= 2;
-    return file.blobName.startsWith(directory) && isInCurrentDir && relativePath.length > 0;
+    return file.blobName.startsWith(directory) && relativePath.length > 0;
   });
 
   const uniqueItems = new Map<string, FileDirItem>();
@@ -105,8 +104,7 @@ export const FilesView = () => {
   const updateDirectoryView = (files: BlobFileDto[], directory: string) => {
     const filtered = files.filter((file) => {
       const relativePath = file.blobName.startsWith(directory) ? file.blobName.slice(directory.length) : '';
-      const isInCurrentDir = !relativePath.includes('/') || relativePath.split('/').length <= 2;
-      return file.blobName.startsWith(directory) && isInCurrentDir && relativePath.length > 0;
+      return file.blobName.startsWith(directory) && relativePath.length > 0;
     });
 
     const uniqueItems = new Map<string, BlobFileDto>();
