@@ -3,26 +3,37 @@ import { BarChart3, CheckCircle, Clock, FileText, Send, RotateCcw } from 'lucide
 import { useAuth } from '../../context/AuthContext';
 import { adminApi } from '../../services/api';
 import { TaggingProgressDto } from '../../types';
+import { Pagination } from '../Pagination';
 
 export const ProgressView = () => {
   const { token } = useAuth();
   const [progress, setProgress] = useState<TaggingProgressDto[]>([]);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [totalCount, setTotalCount] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [hasNextPage, setHasNextPage] = useState(false);
+  const [hasPreviousPage, setHasPreviousPage] = useState(false);
   const [loading, setLoading] = useState(true);
   const [expandedUserId, setExpandedUserId] = useState<number | null>(null);
   const [expandedStatus, setExpandedStatus] = useState<string | null>(null);
 
   useEffect(() => {
     loadProgress();
-  }, []);
+  }, [page, pageSize, token]);
 
   const loadProgress = async () => {
     if (!token) return;
 
     setLoading(true);
     try {
-      const response = await adminApi.getTaggingProgress(token);
+      const response = await adminApi.getTaggingProgress(token, { page, pageSize });
       if (response.success) {
-        setProgress(response.data);
+        setProgress(response.data.items);
+        setTotalCount(response.data.totalCount);
+        setTotalPages(response.data.totalPages);
+        setHasNextPage(response.data.hasNextPage);
+        setHasPreviousPage(response.data.hasPreviousPage);
       }
     } catch (error) {
       console.error('Error loading progress:', error);
@@ -30,6 +41,9 @@ export const ProgressView = () => {
       setLoading(false);
     }
   };
+
+  const handlePageChange = (newPage: number) => setPage(newPage);
+  const handlePageSizeChange = (newSize: number) => { setPageSize(newSize); setPage(1); };
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'N/A';
@@ -108,7 +122,7 @@ export const ProgressView = () => {
         <div className="p-6 border-b border-slate-200 flex items-center justify-between">
           <h2 className="text-lg font-bold text-slate-900">Tagger Progress</h2>
           <span className="text-sm text-slate-500">
-            {getProgressPercentage(totalApproved, totalAssigned)}% overall approved
+            {getProgressPercentage(totalApproved, totalAssigned)}% approved &mdash; {totalCount} tagger{totalCount !== 1 ? 's' : ''} total
           </span>
         </div>
 
@@ -220,6 +234,16 @@ export const ProgressView = () => {
             </div>
           )}
         </div>
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          totalCount={totalCount}
+          pageSize={pageSize}
+          hasNextPage={hasNextPage}
+          hasPreviousPage={hasPreviousPage}
+          onPageChange={handlePageChange}
+          onPageSizeChange={handlePageSizeChange}
+        />
       </div>
     </div>
   );

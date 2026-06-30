@@ -8,39 +8,35 @@ import { AssignBlobFileModal } from './AssignBlobFileModal';
 import { AssignMultipleFilesModal } from './AssignMultipleFilesModal';
 import { FilePreviewModal } from '../FilePreviewModal';
 import { BlobPreviewModal } from '../BlobPreviewModal';
+import { Pagination } from '../Pagination';
 
-type FileDirItem = FileMetadataDto | { isDirectory: true; blobName: string };
-
-const buildFileDirContents = (files: FileMetadataDto[], directory: string): FileDirItem[] => {
-  const filtered = files.filter((file) => {
-    const relativePath = file.blobName.startsWith(directory)
-      ? file.blobName.slice(directory.length)
-      : '';
-    return file.blobName.startsWith(directory) && relativePath.length > 0;
-  });
-
-  const uniqueItems = new Map<string, FileDirItem>();
-
-  filtered.forEach((file) => {
-    const relativePath = file.blobName.slice(directory.length);
-    const parts = relativePath.split('/').filter((p) => p);
-    if (parts.length === 1) {
-      uniqueItems.set(file.blobName, file);
-    } else {
-      const dirName = directory + parts[0] + '/';
-      if (!uniqueItems.has(dirName)) {
-        uniqueItems.set(dirName, { isDirectory: true, blobName: dirName });
-      }
-    }
-  });
-
-  return Array.from(uniqueItems.values());
-};
 
 export const FilesView = () => {
   const { token } = useAuth();
-  const [blobFiles, setBlobFiles] = useState<BlobFileDto[]>([]);
-  const [allFiles, setAllFiles] = useState<FileMetadataDto[]>([]);
+  // Blobs tab state
+  const [blobItems, setBlobItems] = useState<BlobFileDto[]>([]);
+  const [blobPage, setBlobPage] = useState(1);
+  const [blobPageSize, setBlobPageSize] = useState(25);
+  const [blobTotalCount, setBlobTotalCount] = useState(0);
+  const [blobTotalPages, setBlobTotalPages] = useState(0);
+  const [blobHasNext, setBlobHasNext] = useState(false);
+  const [blobHasPrev, setBlobHasPrev] = useState(false);
+  // Assigned files tab state
+  const [assignedFiles, setAssignedFiles] = useState<FileMetadataDto[]>([]);
+  const [assignedPage, setAssignedPage] = useState(1);
+  const [assignedPageSize, setAssignedPageSize] = useState(25);
+  const [assignedTotalCount, setAssignedTotalCount] = useState(0);
+  const [assignedTotalPages, setAssignedTotalPages] = useState(0);
+  const [assignedHasNext, setAssignedHasNext] = useState(false);
+  const [assignedHasPrev, setAssignedHasPrev] = useState(false);
+  // Unassigned files tab state
+  const [unassignedFiles, setUnassignedFiles] = useState<FileMetadataDto[]>([]);
+  const [unassignedPage, setUnassignedPage] = useState(1);
+  const [unassignedPageSize, setUnassignedPageSize] = useState(25);
+  const [unassignedTotalCount, setUnassignedTotalCount] = useState(0);
+  const [unassignedTotalPages, setUnassignedTotalPages] = useState(0);
+  const [unassignedHasNext, setUnassignedHasNext] = useState(false);
+  const [unassignedHasPrev, setUnassignedHasPrev] = useState(false);
   const [taggers, setTaggers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
@@ -57,45 +53,90 @@ export const FilesView = () => {
   const [activeTab, setActiveTab] = useState<'assigned' | 'unassigned' | 'blobs'>('assigned');
   const [currentDirectory, setCurrentDirectory] = useState<string>('');
   const [directoryContents, setDirectoryContents] = useState<BlobFileDto[]>([]);
-  const [assignedDir, setAssignedDir] = useState<string>('');
-  const [assignedDirContents, setAssignedDirContents] = useState<FileDirItem[]>([]);
   const [assignedStatusFilter, setAssignedStatusFilter] = useState<string>('all');
-  const [unassignedDir, setUnassignedDir] = useState<string>('');
-  const [unassignedDirContents, setUnassignedDirContents] = useState<FileDirItem[]>([]);
 
   useEffect(() => {
-    loadData();
-  }, []);
+    if (token) loadTaggers();
+  }, [token]);
 
-  const loadData = async () => {
+  useEffect(() => {
+    if (token) loadBlobs();
+  }, [token, blobPage, blobPageSize, currentDirectory]);
+
+  useEffect(() => {
+    if (token) loadAssignedFiles();
+  }, [token, assignedPage, assignedPageSize]);
+
+  useEffect(() => {
+    if (token) loadUnassignedFiles();
+  }, [token, unassignedPage, unassignedPageSize]);
+
+  const loadTaggers = async () => {
     if (!token) return;
+    try {
+      const res = await adminApi.getTaggers(token, { page: 1, pageSize: 200 });
+      if (res.success) setTaggers(res.data.items);
+    } catch (error) {
+      console.error('Error loading taggers:', error);
+    }
+  };
 
+  const loadBlobs = async () => {
+    if (!token) return;
     setLoading(true);
     try {
-      const [blobsRes, filesRes, taggersRes] = await Promise.all([
-        adminApi.getBlobs(token),
-        adminApi.getFiles(token),
-        adminApi.getTaggers(token),
-      ]);
-
-      if (blobsRes.success) {
-        setBlobFiles(blobsRes.data);
-        updateDirectoryView(blobsRes.data, '');
+      const res = await adminApi.getBlobs(token, currentDirectory || undefined, {
+        page: blobPage,
+        pageSize: blobPageSize,
+      });
+      if (res.success) {
+        setBlobItems(res.data.items);
+        setBlobTotalCount(res.data.totalCount);
+        setBlobTotalPages(res.data.totalPages);
+        setBlobHasNext(res.data.hasNextPage);
+        setBlobHasPrev(res.data.hasPreviousPage);
+        updateDirectoryView(res.data.items, currentDirectory);
       }
-      if (filesRes.success) {
-        const files = filesRes.data;
-        setAllFiles(files);
-        const assigned = files.filter((f) => f.assignedToUserIds.length > 0);
-        const unassigned = files.filter((f) => f.assignedToUserIds.length === 0);
-        setAssignedDirContents(buildFileDirContents(assigned, ''));
-        setUnassignedDirContents(buildFileDirContents(unassigned, ''));
-        setAssignedDir('');
-        setAssignedStatusFilter('all');
-        setUnassignedDir('');
-      }
-      if (taggersRes.success) setTaggers(taggersRes.data);
     } catch (error) {
-      console.error('Error loading data:', error);
+      console.error('Error loading blobs:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadAssignedFiles = async () => {
+    if (!token) return;
+    setLoading(true);
+    try {
+      const res = await adminApi.getFiles(token, { page: assignedPage, pageSize: assignedPageSize });
+      if (res.success) {
+        setAssignedFiles(res.data.items);
+        setAssignedTotalCount(res.data.totalCount);
+        setAssignedTotalPages(res.data.totalPages);
+        setAssignedHasNext(res.data.hasNextPage);
+        setAssignedHasPrev(res.data.hasPreviousPage);
+      }
+    } catch (error) {
+      console.error('Error loading assigned files:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadUnassignedFiles = async () => {
+    if (!token) return;
+    setLoading(true);
+    try {
+      const res = await adminApi.getUnassignedFiles(token, { page: unassignedPage, pageSize: unassignedPageSize });
+      if (res.success) {
+        setUnassignedFiles(res.data.items);
+        setUnassignedTotalCount(res.data.totalCount);
+        setUnassignedTotalPages(res.data.totalPages);
+        setUnassignedHasNext(res.data.hasNextPage);
+        setUnassignedHasPrev(res.data.hasPreviousPage);
+      }
+    } catch (error) {
+      console.error('Error loading unassigned files:', error);
     } finally {
       setLoading(false);
     }
@@ -137,54 +178,18 @@ export const FilesView = () => {
   };
 
   const navigateToDirectory = (dirPath: string) => {
-    updateDirectoryView(blobFiles, dirPath);
+    setCurrentDirectory(dirPath);
+    setBlobPage(1);
+    setSelectedBlobNames(new Set());
   };
 
   const goBack = () => {
     if (currentDirectory === '') return;
     const parts = currentDirectory.slice(0, -1).split('/').filter((p) => p);
     const parent = parts.slice(0, -1).join('/') + (parts.length > 1 ? '/' : '');
-    navigateToDirectory(parent);
-  };
-
-  const getFilteredAssigned = (statusFilter: string) =>
-    allFiles.filter(
-      (f) =>
-        f.assignedToUserIds.length > 0 &&
-        (statusFilter === 'all' || f.status === statusFilter)
-    );
-
-  const navigateToAssignedDir = (dir: string, statusFilter = assignedStatusFilter) => {
-    const assigned = getFilteredAssigned(statusFilter);
-    setAssignedDirContents(buildFileDirContents(assigned, dir));
-    setAssignedDir(dir);
-  };
-
-  const goBackAssigned = () => {
-    if (assignedDir === '') return;
-    const parts = assignedDir.slice(0, -1).split('/').filter((p) => p);
-    const parent = parts.slice(0, -1).join('/') + (parts.length > 1 ? '/' : '');
-    navigateToAssignedDir(parent);
-  };
-
-  const handleAssignedStatusFilter = (status: string) => {
-    setAssignedStatusFilter(status);
-    setAssignedDir('');
-    navigateToAssignedDir('', status);
-  };
-
-  const navigateToUnassignedDir = (dir: string) => {
-    const unassigned = allFiles.filter((f) => f.assignedToUserIds.length === 0);
-    setUnassignedDirContents(buildFileDirContents(unassigned, dir));
-    setUnassignedDir(dir);
-    setSelectedFileIds(new Set());
-  };
-
-  const goBackUnassigned = () => {
-    if (unassignedDir === '') return;
-    const parts = unassignedDir.slice(0, -1).split('/').filter((p) => p);
-    const parent = parts.slice(0, -1).join('/') + (parts.length > 1 ? '/' : '');
-    navigateToUnassignedDir(parent);
+    setCurrentDirectory(parent);
+    setBlobPage(1);
+    setSelectedBlobNames(new Set());
   };
 
   const handleAssignFile = (file: FileMetadataDto) => {
@@ -195,7 +200,8 @@ export const FilesView = () => {
   const handleAssignFileSuccess = () => {
     setShowAssignFileModal(false);
     setSelectedFile(null);
-    loadData();
+    loadAssignedFiles();
+    loadUnassignedFiles();
   };
 
   const handleSync = async () => {
@@ -206,7 +212,9 @@ export const FilesView = () => {
       const response = await adminApi.syncBlobs(token);
       if (response.success) {
         alert(`Sync complete! ${response.data.importedFiles} new files imported, ${response.data.existingFiles} already exist.`);
-        loadData();
+        loadBlobs();
+        loadAssignedFiles();
+        loadUnassignedFiles();
       }
     } catch (error) {
       console.error('Error syncing blobs:', error);
@@ -253,7 +261,9 @@ export const FilesView = () => {
     setShowMultipleFilesModal(false);
     setSelectedBlob(null);
     setSelectedBlobNames(new Set());
-    loadData();
+    loadBlobs();
+    loadAssignedFiles();
+    loadUnassignedFiles();
   };
 
   const handleToggleBlobSelection = (blobName: string) => {
@@ -292,20 +302,18 @@ export const FilesView = () => {
   };
 
   const handleSelectAllUnassignedFiles = () => {
-    const selectableFiles = unassignedDirContents.filter(
-      (item) => !('isDirectory' in item && item.isDirectory)
-    ) as FileMetadataDto[];
-    if (selectedFileIds.size === selectableFiles.length && selectableFiles.length > 0) {
+    if (selectedFileIds.size === unassignedFiles.length && unassignedFiles.length > 0) {
       setSelectedFileIds(new Set());
     } else {
-      setSelectedFileIds(new Set(selectableFiles.map((f) => f.id)));
+      setSelectedFileIds(new Set(unassignedFiles.map((f) => f.id)));
     }
   };
 
   const handleAssignMultipleUnassignedSuccess = () => {
     setShowMultipleUnassignedModal(false);
     setSelectedFileIds(new Set());
-    loadData();
+    loadAssignedFiles();
+    loadUnassignedFiles();
   };
 
   if (loading) {
@@ -347,7 +355,7 @@ export const FilesView = () => {
               }`}
             >
               <FileText className="w-4 h-4" />
-              Assigned Files ({allFiles.filter((f) => f.assignedToUserIds.length > 0).length})
+              Assigned Files ({assignedTotalCount})
             </button>
             <button
               onClick={() => setActiveTab('unassigned')}
@@ -358,7 +366,7 @@ export const FilesView = () => {
               }`}
             >
               <FileText className="w-4 h-4" />
-              Unassigned ({allFiles.filter((f) => f.assignedToUserIds.length === 0).length})
+              Unassigned ({unassignedTotalCount})
             </button>
             <button
               onClick={() => setActiveTab('blobs')}
@@ -369,7 +377,7 @@ export const FilesView = () => {
               }`}
             >
               <Cloud className="w-4 h-4" />
-              Blob Storage ({blobFiles.length})
+              Blob Storage ({blobTotalCount})
             </button>
           </div>
         </div>
@@ -389,7 +397,7 @@ export const FilesView = () => {
                 ] as const).map(({ value, label }) => (
                   <button
                     key={value}
-                    onClick={() => handleAssignedStatusFilter(value)}
+                    onClick={() => { setAssignedStatusFilter(value); setAssignedPage(1); }}
                     className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
                       assignedStatusFilter === value
                         ? value === 'all'
@@ -405,170 +413,103 @@ export const FilesView = () => {
                     }`}
                   >
                     {label}
-                    {value !== 'all' && (
-                      <span className="ml-1 opacity-75">
-                        ({allFiles.filter((f) => f.assignedToUserIds.length > 0 && f.status === value).length})
-                      </span>
-                    )}
-                    {value === 'all' && (
-                      <span className="ml-1 opacity-75">
-                        ({allFiles.filter((f) => f.assignedToUserIds.length > 0).length})
-                      </span>
-                    )}
                   </button>
                 ))}
               </div>
 
-              {assignedDir !== '' && (
-                <div className="p-4 border-b border-slate-200 bg-slate-50 flex items-center gap-2">
-                  <button
-                    onClick={goBackAssigned}
-                    className="px-3 py-1 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-100 transition-colors text-sm"
-                  >
-                    ← Back
-                  </button>
-                  <span className="text-sm text-slate-600">
-                    {assignedDir.split('/').filter((p) => p).pop() || 'Root'}
-                  </span>
-                </div>
-              )}
               <table className="w-full">
                 <thead className="bg-slate-50 border-b border-slate-200">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">
-                      File
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">
-                      Size
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">
-                      Assigned To
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">
-                      Tags
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-slate-600 uppercase tracking-wider">
-                      Actions
-                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">File</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Size</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Assigned To</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Tags</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-slate-600 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
-                  {assignedDirContents.map((item, index) => {
-                    const isDir = 'isDirectory' in item && item.isDirectory;
-                    const file = isDir ? null : (item as FileMetadataDto);
-                    return (
-                      <tr key={index} className="hover:bg-slate-50 transition-colors">
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-3">
-                            {isDir ? (
-                              <>
-                                <FolderOpen className="w-5 h-5 text-amber-500 flex-shrink-0" />
-                                <button
-                                  onClick={() => navigateToAssignedDir(item.blobName)}
-                                  className="text-sm font-medium text-blue-600 hover:text-blue-800 truncate text-left"
-                                >
-                                  {item.blobName.split('/').filter((p) => p).pop()}
-                                </button>
-                              </>
-                            ) : (
-                              <>
-                                <FileText className="w-5 h-5 text-slate-500 flex-shrink-0" />
-                                <div className="min-w-0">
-                                  <p className="text-sm font-medium text-slate-900 truncate">
-                                    {file!.fileName}
-                                  </p>
-                                  <p className="text-xs text-slate-600">{file!.contentType}</p>
-                                </div>
-                              </>
-                            )}
+                  {assignedFiles
+                    .filter((f) => assignedStatusFilter === 'all' || f.status === assignedStatusFilter)
+                    .map((file) => (
+                    <tr key={file.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <FileText className="w-5 h-5 text-slate-500 flex-shrink-0" />
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-slate-900 truncate">{file.fileName}</p>
+                            <p className="text-xs text-slate-600">{file.contentType}</p>
                           </div>
-                        </td>
-                        <td className="px-6 py-4 text-sm text-slate-600">
-                          {!isDir && formatFileSize(file!.fileSize)}
-                        </td>
-                        <td className="px-6 py-4">
-                          {!isDir && (
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium ${
-                              file!.status === 'ApprovedBySupervisor'
-                                ? 'bg-green-100 text-green-800'
-                                : file!.status === 'SubmittedToSupervisor'
-                                ? 'bg-blue-100 text-blue-800'
-                                : file!.status === 'SendBackToTagger'
-                                ? 'bg-amber-100 text-amber-800'
-                                : 'bg-slate-100 text-slate-700'
-                            }`}>
-                              {file!.status === 'ApprovedBySupervisor' ? 'Approved'
-                                : file!.status === 'SubmittedToSupervisor' ? 'Submitted'
-                                : file!.status === 'SendBackToTagger' ? 'Sent Back'
-                                : file!.status === 'Assigned' ? 'Assigned'
-                                : file!.status}
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4">
-                          {!isDir && file!.assignedToUserIds?.length > 0 ? (
-                            <div className="flex flex-wrap gap-1">
-                              {file!.assignedToUserIds.map((uid) => {
-                                const user = taggers.find((t) => t.id === uid);
-                                return user ? (
-                                  <span key={uid} className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-slate-100 text-slate-700">
-                                    {user.username}
-                                  </span>
-                                ) : null;
-                              })}
-                            </div>
-                          ) : null}
-                        </td>
-                        <td className="px-6 py-4">
-                          {!isDir && (
-                            <span className="text-sm text-slate-600">
-                              {file!.tags?.length || 0} tags
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          {!isDir && (
-                            <button
-                              onClick={() => handlePreviewFile(file!)}
-                              className="inline-flex items-center gap-1 px-3 py-1 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
-                            >
-                              <Eye className="w-3 h-3" />
-                              Preview
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-slate-600">{formatFileSize(file.fileSize)}</td>
+                      <td className="px-6 py-4">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium ${
+                          file.status === 'ApprovedBySupervisor'
+                            ? 'bg-green-100 text-green-800'
+                            : file.status === 'SubmittedToSupervisor'
+                            ? 'bg-blue-100 text-blue-800'
+                            : file.status === 'SendBackToTagger'
+                            ? 'bg-amber-100 text-amber-800'
+                            : 'bg-slate-100 text-slate-700'
+                        }`}>
+                          {file.status === 'ApprovedBySupervisor' ? 'Approved'
+                            : file.status === 'SubmittedToSupervisor' ? 'Submitted'
+                            : file.status === 'SendBackToTagger' ? 'Sent Back'
+                            : file.status === 'Assigned' ? 'Assigned'
+                            : file.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        {file.assignedToUserIds?.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {file.assignedToUserIds.map((uid) => {
+                              const tagger = taggers.find((t) => t.id === uid);
+                              return tagger ? (
+                                <span key={uid} className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-slate-100 text-slate-700">
+                                  {tagger.username}
+                                </span>
+                              ) : null;
+                            })}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-slate-400">Unassigned</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-slate-600">{file.tags?.length || 0} tags</td>
+                      <td className="px-6 py-4 text-right">
+                        <button
+                          onClick={() => handlePreviewFile(file)}
+                          className="inline-flex items-center gap-1 px-3 py-1 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+                        >
+                          <Eye className="w-3 h-3" />
+                          Preview
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
 
-              {assignedDirContents.length === 0 && (
+              {assignedFiles.length === 0 && (
                 <div className="text-center py-12">
                   <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                  <p className="text-slate-600">No assigned files yet</p>
+                  <p className="text-slate-600">No files found</p>
                 </div>
               )}
+              <Pagination
+                page={assignedPage}
+                totalPages={assignedTotalPages}
+                totalCount={assignedTotalCount}
+                pageSize={assignedPageSize}
+                hasNextPage={assignedHasNext}
+                hasPreviousPage={assignedHasPrev}
+                onPageChange={(p) => setAssignedPage(p)}
+                onPageSizeChange={(s) => { setAssignedPageSize(s); setAssignedPage(1); }}
+              />
             </>
           ) : activeTab === 'unassigned' ? (
             <>
-              {unassignedDir !== '' && (
-                <div className="p-4 border-b border-slate-200 bg-slate-50 flex items-center gap-2">
-                  <button
-                    onClick={goBackUnassigned}
-                    className="px-3 py-1 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-100 transition-colors text-sm"
-                  >
-                    ← Back
-                  </button>
-                  <span className="text-sm text-slate-600">
-                    {unassignedDir.split('/').filter((p) => p).pop() || 'Root'}
-                  </span>
-                </div>
-              )}
-
               {/* Bulk Selection Toolbar */}
               {selectedFileIds.size > 0 && (
                 <div className="p-4 border-b border-slate-200 bg-blue-50 flex items-center justify-between">
@@ -592,119 +533,86 @@ export const FilesView = () => {
                       <button
                         onClick={handleSelectAllUnassignedFiles}
                         className="p-1 hover:bg-slate-200 rounded transition-colors"
-                        title={
-                          selectedFileIds.size === unassignedDirContents.filter((i) => !('isDirectory' in i && i.isDirectory)).length
-                            ? 'Deselect all'
-                            : 'Select all'
-                        }
+                        title={selectedFileIds.size === unassignedFiles.length ? 'Deselect all' : 'Select all'}
                       >
-                        {selectedFileIds.size === unassignedDirContents.filter((i) => !('isDirectory' in i && i.isDirectory)).length &&
-                        unassignedDirContents.filter((i) => !('isDirectory' in i && i.isDirectory)).length > 0 ? (
+                        {selectedFileIds.size === unassignedFiles.length && unassignedFiles.length > 0 ? (
                           <CheckCircle2 className="w-5 h-5 text-blue-600" />
                         ) : (
                           <Circle className="w-5 h-5 text-slate-400" />
                         )}
                       </button>
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">
-                      File
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">
-                      Size
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">
-                      Type
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-slate-600 uppercase tracking-wider">
-                      Actions
-                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">File</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Size</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Type</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-slate-600 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
-                  {unassignedDirContents.map((item, index) => {
-                    const isDir = 'isDirectory' in item && item.isDirectory;
-                    const file = isDir ? null : (item as FileMetadataDto);
-                    return (
-                      <tr key={index} className={`hover:bg-slate-50 transition-colors ${!isDir && selectedFileIds.has(file!.id) ? 'bg-blue-50' : ''}`}>
-                        <td className="px-6 py-4">
-                          {!isDir ? (
-                            <button
-                              onClick={() => handleToggleFileSelection(file!.id)}
-                              className="p-1 hover:bg-slate-200 rounded transition-colors"
-                            >
-                              {selectedFileIds.has(file!.id) ? (
-                                <CheckCircle2 className="w-5 h-5 text-blue-600" />
-                              ) : (
-                                <Circle className="w-5 h-5 text-slate-400" />
-                              )}
-                            </button>
+                  {unassignedFiles.map((file) => (
+                    <tr key={file.id} className={`hover:bg-slate-50 transition-colors ${selectedFileIds.has(file.id) ? 'bg-blue-50' : ''}`}>
+                      <td className="px-6 py-4">
+                        <button
+                          onClick={() => handleToggleFileSelection(file.id)}
+                          className="p-1 hover:bg-slate-200 rounded transition-colors"
+                        >
+                          {selectedFileIds.has(file.id) ? (
+                            <CheckCircle2 className="w-5 h-5 text-blue-600" />
                           ) : (
-                            <div className="w-7" />
+                            <Circle className="w-5 h-5 text-slate-400" />
                           )}
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-3">
-                            {isDir ? (
-                              <>
-                                <FolderOpen className="w-5 h-5 text-amber-500 flex-shrink-0" />
-                                <button
-                                  onClick={() => navigateToUnassignedDir(item.blobName)}
-                                  className="text-sm font-medium text-blue-600 hover:text-blue-800 truncate text-left"
-                                >
-                                  {item.blobName.split('/').filter((p) => p).pop()}
-                                </button>
-                              </>
-                            ) : (
-                              <>
-                                <FileText className="w-5 h-5 text-slate-500 flex-shrink-0" />
-                                <div className="min-w-0">
-                                  <p className="text-sm font-medium text-slate-900 truncate">
-                                    {file!.fileName}
-                                  </p>
-                                  <p className="text-xs text-slate-600">{file!.contentType}</p>
-                                </div>
-                              </>
-                            )}
+                        </button>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <FileText className="w-5 h-5 text-slate-500 flex-shrink-0" />
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-slate-900 truncate">{file.fileName}</p>
+                            <p className="text-xs text-slate-600">{file.contentType}</p>
                           </div>
-                        </td>
-                        <td className="px-6 py-4 text-sm text-slate-600">
-                          {!isDir && formatFileSize(file!.fileSize)}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-slate-700">
-                          {isDir ? 'Folder' : file!.contentType || 'Unknown'}
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          {!isDir && (
-                            <div className="flex items-center justify-end gap-2">
-                              <button
-                                onClick={() => handlePreviewFile(file!)}
-                                className="inline-flex items-center gap-1 px-3 py-1 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
-                              >
-                                <Eye className="w-3 h-3" />
-                                Preview
-                              </button>
-                              <button
-                                onClick={() => handleAssignFile(file!)}
-                                className="inline-flex items-center gap-1 px-3 py-1 bg-primary-800 text-white text-sm rounded-lg hover:bg-primary-700 transition-colors"
-                              >
-                                <Plus className="w-3 h-3" />
-                                Assign
-                              </button>
-                            </div>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-slate-600">{formatFileSize(file.fileSize)}</td>
+                      <td className="px-6 py-4 text-sm text-slate-700">{file.contentType || 'Unknown'}</td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => handlePreviewFile(file)}
+                            className="inline-flex items-center gap-1 px-3 py-1 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+                          >
+                            <Eye className="w-3 h-3" />
+                            Preview
+                          </button>
+                          <button
+                            onClick={() => handleAssignFile(file)}
+                            className="inline-flex items-center gap-1 px-3 py-1 bg-primary-800 text-white text-sm rounded-lg hover:bg-primary-700 transition-colors"
+                          >
+                            <Plus className="w-3 h-3" />
+                            Assign
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
 
-              {unassignedDirContents.length === 0 && (
+              {unassignedFiles.length === 0 && (
                 <div className="text-center py-12">
                   <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
                   <p className="text-slate-600">No unassigned files</p>
                 </div>
               )}
+              <Pagination
+                page={unassignedPage}
+                totalPages={unassignedTotalPages}
+                totalCount={unassignedTotalCount}
+                pageSize={unassignedPageSize}
+                hasNextPage={unassignedHasNext}
+                hasPreviousPage={unassignedHasPrev}
+                onPageChange={(p) => { setUnassignedPage(p); setSelectedFileIds(new Set()); }}
+                onPageSizeChange={(s) => { setUnassignedPageSize(s); setUnassignedPage(1); setSelectedFileIds(new Set()); }}
+              />
             </>
           ) : (
             <>
@@ -858,7 +766,7 @@ export const FilesView = () => {
 
               {directoryContents.length === 0 && (
                 <div className="text-center py-12">
-                  {blobFiles.length === 0 ? (
+                  {blobTotalCount === 0 ? (
                     <>
                       <Cloud className="w-12 h-12 text-slate-300 mx-auto mb-3" />
                       <p className="text-slate-600 mb-2">No blob files found</p>
@@ -877,6 +785,16 @@ export const FilesView = () => {
                   )}
                 </div>
               )}
+              <Pagination
+                page={blobPage}
+                totalPages={blobTotalPages}
+                totalCount={blobTotalCount}
+                pageSize={blobPageSize}
+                hasNextPage={blobHasNext}
+                hasPreviousPage={blobHasPrev}
+                onPageChange={(p) => setBlobPage(p)}
+                onPageSizeChange={(s) => { setBlobPageSize(s); setBlobPage(1); }}
+              />
             </>
           )}
         </div>
@@ -911,7 +829,7 @@ export const FilesView = () => {
 
       {showMultipleUnassignedModal && selectedFileIds.size > 0 && (
         <AssignMultipleFilesModal
-          selectedBlobs={allFiles
+          selectedBlobs={unassignedFiles
             .filter((f) => selectedFileIds.has(f.id))
             .map((f) => ({
               blobName: f.blobName,

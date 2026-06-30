@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { taggerApi } from '../../services/api';
 import { FileMetadataDto } from '../../types';
 import { TagEditor } from './TagEditor';
+import { Pagination } from '../Pagination';
 
 export const TaggerDashboard = () => {
   const { user, logout, token } = useAuth();
@@ -11,19 +12,29 @@ export const TaggerDashboard = () => {
   const [selectedFile, setSelectedFile] = useState<FileMetadataDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'all' | 'inprogress' | 'submitted' | 'needsrevision' | 'completed'>('all');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [totalCount, setTotalCount] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [hasNextPage, setHasNextPage] = useState(false);
+  const [hasPreviousPage, setHasPreviousPage] = useState(false);
 
   useEffect(() => {
     loadFiles();
-  }, [token]);
+  }, [token, page, pageSize]);
 
   const loadFiles = async () => {
     if (!token) return;
 
     setLoading(true);
     try {
-      const response = await taggerApi.getMyFiles(token);
+      const response = await taggerApi.getMyFiles(token, { page, pageSize });
       if (response.success) {
-        setFiles(response.data);
+        setFiles(response.data.items);
+        setTotalCount(response.data.totalCount);
+        setTotalPages(response.data.totalPages);
+        setHasNextPage(response.data.hasNextPage);
+        setHasPreviousPage(response.data.hasPreviousPage);
       }
     } catch (error) {
       console.error('Error loading files:', error);
@@ -106,7 +117,7 @@ export const TaggerDashboard = () => {
               </div>
               <h3 className="text-sm font-medium text-slate-600">Total Assigned</h3>
             </div>
-            <p className="text-3xl font-bold text-slate-900">{files.length}</p>
+            <p className="text-3xl font-bold text-slate-900">{totalCount}</p>
           </div>
 
           <div className="bg-white rounded-2xl shadow-sm p-6">
@@ -162,7 +173,7 @@ export const TaggerDashboard = () => {
                 }`}
               >
                 <FileText className="w-3.5 h-3.5" />
-                All ({files.length})
+                All ({totalCount})
               </button>
               <button
                 onClick={() => { setActiveTab('inprogress'); setSelectedFile(null); }}
@@ -274,6 +285,16 @@ export const TaggerDashboard = () => {
                 ))}
               </div>
             )}
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              totalCount={totalCount}
+              pageSize={pageSize}
+              hasNextPage={hasNextPage}
+              hasPreviousPage={hasPreviousPage}
+              onPageChange={(p) => { setPage(p); setSelectedFile(null); }}
+              onPageSizeChange={(s) => { setPageSize(s); setPage(1); setSelectedFile(null); }}
+            />
           </div>
 
           {selectedFile ? (

@@ -4,31 +4,37 @@ import { useAuth } from '../../context/AuthContext';
 import { supervisorApi } from '../../services/api';
 import { SupervisorReviewDto } from '../../types';
 import { ReviewFileModal } from './ReviewFileModal';
+import { Pagination } from '../Pagination';
 
 export const ReviewView = () => {
   const { token } = useAuth();
   const [files, setFiles] = useState<SupervisorReviewDto[]>([]);
-  const [filteredFiles, setFilteredFiles] = useState<SupervisorReviewDto[]>([]);
   const [selectedFile, setSelectedFile] = useState<SupervisorReviewDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState<'all' | 'unchecked' | 'checked' | 'sentback'>('unchecked');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [totalCount, setTotalCount] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [hasNextPage, setHasNextPage] = useState(false);
+  const [hasPreviousPage, setHasPreviousPage] = useState(false);
 
   useEffect(() => {
     loadFiles();
-  }, [token]);
-
-  useEffect(() => {
-    applyFilter();
-  }, [files, filterStatus]);
+  }, [page, pageSize, token]);
 
   const loadFiles = async () => {
     if (!token) return;
 
     setLoading(true);
     try {
-      const response = await supervisorApi.getAllStudentFiles(token);
+      const response = await supervisorApi.getAllStudentFiles(token, { page, pageSize });
       if (response.success) {
-        setFiles(response.data);
+        setFiles(response.data.items);
+        setTotalCount(response.data.totalCount);
+        setTotalPages(response.data.totalPages);
+        setHasNextPage(response.data.hasNextPage);
+        setHasPreviousPage(response.data.hasPreviousPage);
       }
     } catch (error) {
       console.error('Error loading files:', error);
@@ -37,19 +43,17 @@ export const ReviewView = () => {
     }
   };
 
-  const applyFilter = () => {
-    let filtered = files.filter(f => f.status === 'SubmittedToSupervisor' || f.status === 'SendBackToTagger');
+  const handlePageChange = (newPage: number) => setPage(newPage);
+  const handlePageSizeChange = (newSize: number) => { setPageSize(newSize); setPage(1); };
 
-    if (filterStatus === 'unchecked') {
-      filtered = filtered.filter(f => f.status === 'SubmittedToSupervisor' && !f.isCheckedBySupervisor);
-    } else if (filterStatus === 'checked') {
-      filtered = filtered.filter(f => f.isCheckedBySupervisor);
-    } else if (filterStatus === 'sentback') {
-      filtered = filtered.filter(f => f.status === 'SendBackToTagger');
-    }
-
-    setFilteredFiles(filtered);
-  };
+  const filteredFiles = files.filter((f) => {
+    const isSubmitted = f.status === 'SubmittedToSupervisor' || f.status === 'SendBackToTagger';
+    if (filterStatus === 'all') return isSubmitted;
+    if (filterStatus === 'unchecked') return f.status === 'SubmittedToSupervisor' && !f.isCheckedBySupervisor;
+    if (filterStatus === 'checked') return f.isCheckedBySupervisor;
+    if (filterStatus === 'sentback') return f.status === 'SendBackToTagger';
+    return isSubmitted;
+  });
 
   const handleFileReviewed = () => {
     setSelectedFile(null);
@@ -60,7 +64,7 @@ export const ReviewView = () => {
     return <div className="text-center py-12 text-slate-600">Loading files...</div>;
   }
 
-  if (files.length === 0) {
+  if (totalCount === 0) {
     return (
       <div className="text-center py-12">
         <FileText className="w-16 h-16 text-slate-300 mx-auto mb-4" />
@@ -120,7 +124,7 @@ export const ReviewView = () => {
           </div>
         </div>
         <div className="text-sm text-slate-600">
-          {filteredFiles.length} file{filteredFiles.length !== 1 ? 's' : ''}
+          {filteredFiles.length} of {pageSize} on this page
         </div>
       </div>
 
@@ -176,6 +180,17 @@ export const ReviewView = () => {
           onReviewed={handleFileReviewed}
         />
       )}
+
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        totalCount={totalCount}
+        pageSize={pageSize}
+        hasNextPage={hasNextPage}
+        hasPreviousPage={hasPreviousPage}
+        onPageChange={handlePageChange}
+        onPageSizeChange={handlePageSizeChange}
+      />
     </div>
   );
 };

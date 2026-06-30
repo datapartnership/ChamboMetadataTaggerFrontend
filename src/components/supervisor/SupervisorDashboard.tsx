@@ -5,6 +5,7 @@ import { supervisorApi } from '../../services/api';
 import { StudentWithStatsDto } from '../../types';
 import { StudentsView } from './StudentsView';
 import { ReviewView } from './ReviewView';
+import { Pagination } from '../Pagination';
 
 type ViewType = 'students' | 'review';
 
@@ -12,13 +13,19 @@ export const SupervisorDashboard = () => {
   const { user, logout, token } = useAuth();
   const [currentView, setCurrentView] = useState<ViewType>('students');
   const [students, setStudents] = useState<StudentWithStatsDto[]>([]);
+  const [studentsPage, setStudentsPage] = useState(1);
+  const [studentsPageSize, setStudentsPageSize] = useState(10);
+  const [studentsTotalCount, setStudentsTotalCount] = useState(0);
+  const [studentsTotalPages, setStudentsTotalPages] = useState(0);
+  const [studentsHasNextPage, setStudentsHasNextPage] = useState(false);
+  const [studentsHasPreviousPage, setStudentsHasPreviousPage] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (token) {
       loadStudents();
     }
-  }, [token]);
+  }, [token, studentsPage, studentsPageSize]);
 
   const loadStudents = async () => {
     if (!token) {
@@ -29,67 +36,20 @@ export const SupervisorDashboard = () => {
     setLoading(true);
     try {
       console.log('Fetching students with token:', token.substring(0, 20) + '...');
-      const response = await supervisorApi.getMyStudents(token);
+      const response = await supervisorApi.getMyStudents(token, {
+        page: studentsPage,
+        pageSize: studentsPageSize,
+      });
       console.log('Students API response:', response);
 
-      if (response.success && response.data && response.data.length > 0) {
-        console.log('Number of students:', response.data.length);
-        console.log('Students data:', response.data);
-        setStudents(response.data);
+      if (response.success) {
+        setStudents(response.data.items);
+        setStudentsTotalCount(response.data.totalCount);
+        setStudentsTotalPages(response.data.totalPages);
+        setStudentsHasNextPage(response.data.hasNextPage);
+        setStudentsHasPreviousPage(response.data.hasPreviousPage);
       } else {
-        console.log('No students from my-students endpoint, trying to derive from files...');
-        const filesResponse = await supervisorApi.getAllStudentFiles(token);
-        console.log('Files response:', filesResponse);
-
-        if (filesResponse.success && filesResponse.data && filesResponse.data.length > 0) {
-          const studentMap = new Map<number, StudentWithStatsDto>();
-
-          filesResponse.data.forEach(file => {
-            if (!studentMap.has(file.studentId)) {
-              studentMap.set(file.studentId, {
-                studentId: file.studentId,
-                username: file.studentUsername,
-                email: '',
-                totalAssigned: 0,
-                totalCompleted: 0,
-                inProgress: 0,
-                recentFiles: []
-              });
-            }
-
-            const student = studentMap.get(file.studentId)!;
-            student.totalAssigned++;
-
-            if (file.status === 'ApprovedBySupervisor' || file.status === 'Checked') {
-              student.totalCompleted++;
-            } else if (file.status === 'SubmittedToSupervisor' || file.status === 'Assigned') {
-              student.inProgress++;
-            }
-
-            if (student.recentFiles.length < 5) {
-              student.recentFiles.push({
-                id: file.fileId,
-                fileName: file.fileName,
-                fileUrl: file.fileUrl,
-                blobName: file.blobName,
-                fileSize: 0,
-                contentType: '',
-                uploadedAt: '',
-                status: file.status,
-                taggingCompletedAt: file.completedAt,
-                tags: file.tags,
-                assignedToUserIds: [file.studentId]
-              });
-            }
-          });
-
-          const derivedStudents = Array.from(studentMap.values());
-          console.log('Derived students:', derivedStudents);
-          setStudents(derivedStudents);
-        } else {
-          console.log('No files found either');
-          setStudents([]);
-        }
+        setStudents([]);
       }
     } catch (error) {
       console.error('Error loading students:', error);
@@ -147,7 +107,7 @@ export const SupervisorDashboard = () => {
               </div>
               <h3 className="text-sm font-medium text-slate-600">Students</h3>
             </div>
-            <p className="text-3xl font-bold text-slate-900">{students.length}</p>
+            <p className="text-3xl font-bold text-slate-900">{studentsTotalCount}</p>
           </div>
 
           <div className="bg-white rounded-2xl shadow-sm p-6">
@@ -211,7 +171,19 @@ export const SupervisorDashboard = () => {
             {loading ? (
               <div className="text-center py-12 text-slate-600">Loading...</div>
             ) : currentView === 'students' ? (
-              <StudentsView students={students} />
+              <>
+                <StudentsView students={students} />
+                <Pagination
+                  page={studentsPage}
+                  totalPages={studentsTotalPages}
+                  totalCount={studentsTotalCount}
+                  pageSize={studentsPageSize}
+                  hasNextPage={studentsHasNextPage}
+                  hasPreviousPage={studentsHasPreviousPage}
+                  onPageChange={(p) => setStudentsPage(p)}
+                  onPageSizeChange={(s) => { setStudentsPageSize(s); setStudentsPage(1); }}
+                />
+              </>
             ) : (
               <ReviewView />
             )}

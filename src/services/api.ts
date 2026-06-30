@@ -1,5 +1,7 @@
 import {
   ApiResponse,
+  PagedResponse,
+  PaginationParams,
   FileMetadataDto,
   BlobFileDto,
   User,
@@ -22,6 +24,18 @@ import {
 } from '../types';
 import { API_URL } from '../config';
 
+const buildPaginationQuery = (params?: PaginationParams): string => {
+  if (!params) return '';
+  const p = new URLSearchParams();
+  if (params.page !== undefined) p.append('Page', String(params.page));
+  if (params.pageSize !== undefined) p.append('PageSize', String(params.pageSize));
+  if (params.sortBy !== undefined) p.append('SortBy', params.sortBy);
+  if (params.sortOrder !== undefined) p.append('SortOrder', params.sortOrder);
+  if (params.isDescending !== undefined) p.append('IsDescending', String(params.isDescending));
+  const qs = p.toString();
+  return qs ? `?${qs}` : '';
+};
+
 const getAuthHeaders = (token: string) => ({
   'Authorization': `Bearer ${token}`,
   'Content-Type': 'application/json',
@@ -37,15 +51,15 @@ const handleResponse = async <T>(response: Response): Promise<T> => {
 };
 
 export const adminApi = {
-  async getUsers(token: string): Promise<ApiResponse<User[]>> {
-    const response = await fetch(`${API_URL}/api/Admin/users`, {
+  async getUsers(token: string, params?: PaginationParams): Promise<ApiResponse<PagedResponse<User>>> {
+    const response = await fetch(`${API_URL}/api/Admin/users${buildPaginationQuery(params)}`, {
       headers: getAuthHeaders(token),
     });
     return handleResponse(response);
   },
 
-  async getTaggers(token: string): Promise<ApiResponse<User[]>> {
-    const response = await fetch(`${API_URL}/api/Admin/taggers`, {
+  async getTaggers(token: string, params?: PaginationParams): Promise<ApiResponse<PagedResponse<User>>> {
+    const response = await fetch(`${API_URL}/api/Admin/taggers${buildPaginationQuery(params)}`, {
       headers: getAuthHeaders(token),
     });
     return handleResponse(response);
@@ -68,22 +82,30 @@ export const adminApi = {
     return handleResponse(response);
   },
 
-  async getBlobs(token: string): Promise<ApiResponse<BlobFileDto[]>> {
-    const response = await fetch(`${API_URL}/api/Admin/blobs`, {
+  async getBlobs(token: string, folder?: string, params?: PaginationParams): Promise<ApiResponse<PagedResponse<BlobFileDto>>> {
+    const p = new URLSearchParams();
+    if (folder) p.append('folder', folder);
+    if (params?.page !== undefined) p.append('Page', String(params.page));
+    if (params?.pageSize !== undefined) p.append('PageSize', String(params.pageSize));
+    if (params?.sortBy !== undefined) p.append('SortBy', params.sortBy);
+    if (params?.sortOrder !== undefined) p.append('SortOrder', params.sortOrder);
+    if (params?.isDescending !== undefined) p.append('IsDescending', String(params.isDescending));
+    const qs = p.toString();
+    const response = await fetch(`${API_URL}/api/Admin/blobs${qs ? `?${qs}` : ''}`, {
       headers: getAuthHeaders(token),
     });
     return handleResponse(response);
   },
 
-  async getFiles(token: string): Promise<ApiResponse<FileMetadataDto[]>> {
-    const response = await fetch(`${API_URL}/api/Admin/files`, {
+  async getFiles(token: string, params?: PaginationParams): Promise<ApiResponse<PagedResponse<FileMetadataDto>>> {
+    const response = await fetch(`${API_URL}/api/Admin/files${buildPaginationQuery(params)}`, {
       headers: getAuthHeaders(token),
     });
     return handleResponse(response);
   },
 
-  async getUnassignedFiles(token: string): Promise<ApiResponse<FileMetadataDto[]>> {
-    const response = await fetch(`${API_URL}/api/Admin/files/unassigned`, {
+  async getUnassignedFiles(token: string, params?: PaginationParams): Promise<ApiResponse<PagedResponse<FileMetadataDto>>> {
+    const response = await fetch(`${API_URL}/api/Admin/files/unassigned${buildPaginationQuery(params)}`, {
       headers: getAuthHeaders(token),
     });
     return handleResponse(response);
@@ -145,15 +167,15 @@ export const adminApi = {
     return handleResponse(response);
   },
 
-  async getTaggingProgress(token: string): Promise<ApiResponse<TaggingProgressDto[]>> {
-    const response = await fetch(`${API_URL}/api/Admin/tagging-progress`, {
+  async getTaggingProgress(token: string, params?: PaginationParams): Promise<ApiResponse<PagedResponse<TaggingProgressDto>>> {
+    const response = await fetch(`${API_URL}/api/Admin/tagging-progress${buildPaginationQuery(params)}`, {
       headers: getAuthHeaders(token),
     });
     return handleResponse(response);
   },
 
-  async getSupervisorAssignments(token: string): Promise<ApiResponse<StudentSupervisorDto[]>> {
-    const response = await fetch(`${API_URL}/api/Admin/supervisor-assignments`, {
+  async getSupervisorAssignments(token: string, params?: PaginationParams): Promise<ApiResponse<PagedResponse<StudentSupervisorDto>>> {
+    const response = await fetch(`${API_URL}/api/Admin/supervisor-assignments${buildPaginationQuery(params)}`, {
       headers: getAuthHeaders(token),
     });
     return handleResponse(response);
@@ -179,8 +201,8 @@ export const adminApi = {
 };
 
 export const taggerApi = {
-  async getMyFiles(token: string): Promise<ApiResponse<FileMetadataDto[]>> {
-    const response = await fetch(`${API_URL}/api/Tagger/my-files`, {
+  async getMyFiles(token: string, params?: PaginationParams): Promise<ApiResponse<PagedResponse<FileMetadataDto>>> {
+    const response = await fetch(`${API_URL}/api/Tagger/my-files${buildPaginationQuery(params)}`, {
       headers: getAuthHeaders(token),
     });
     return handleResponse(response);
@@ -219,22 +241,22 @@ export const taggerApi = {
 };
 
 export const supervisorApi = {
-  async getMyStudents(token: string): Promise<ApiResponse<StudentWithStatsDto[]>> {
-    const response = await fetch(`${API_URL}/api/Supervisor/my-students`, {
+  async getMyStudents(token: string, params?: PaginationParams): Promise<ApiResponse<PagedResponse<StudentWithStatsDto>>> {
+    const response = await fetch(`${API_URL}/api/Supervisor/my-students${buildPaginationQuery(params)}`, {
       headers: getAuthHeaders(token),
     });
     return handleResponse(response);
   },
 
-  async getStudentFiles(token: string, studentId: number): Promise<ApiResponse<SupervisorReviewDto[]>> {
-    const response = await fetch(`${API_URL}/api/Supervisor/students/${studentId}/files`, {
+  async getStudentFiles(token: string, studentId: number, params?: PaginationParams): Promise<ApiResponse<PagedResponse<SupervisorReviewDto>>> {
+    const response = await fetch(`${API_URL}/api/Supervisor/students/${studentId}/files${buildPaginationQuery(params)}`, {
       headers: getAuthHeaders(token),
     });
     return handleResponse(response);
   },
 
-  async getAllStudentFiles(token: string): Promise<ApiResponse<SupervisorReviewDto[]>> {
-    const response = await fetch(`${API_URL}/api/Supervisor/all-student-files`, {
+  async getAllStudentFiles(token: string, params?: PaginationParams): Promise<ApiResponse<PagedResponse<SupervisorReviewDto>>> {
+    const response = await fetch(`${API_URL}/api/Supervisor/all-student-files${buildPaginationQuery(params)}`, {
       headers: getAuthHeaders(token),
     });
     return handleResponse(response);

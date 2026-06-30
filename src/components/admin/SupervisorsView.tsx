@@ -23,18 +23,18 @@ export const SupervisorsView = () => {
     setLoading(true);
     try {
       const [usersResponse, assignmentsResponse] = await Promise.all([
-        adminApi.getUsers(token),
-        adminApi.getSupervisorAssignments(token),
+        adminApi.getUsers(token, { page: 1, pageSize: 200 }),
+        adminApi.getSupervisorAssignments(token, { page: 1, pageSize: 200 }),
       ]);
 
       if (usersResponse.success) {
-        const allUsers = usersResponse.data;
+        const allUsers = usersResponse.data.items;
         setSupervisors(allUsers.filter(u => u.role === 'Supervisor'));
         setStudents(allUsers.filter(u => u.role === 'Tagger'));
       }
 
       if (assignmentsResponse.success) {
-        setAssignments(assignmentsResponse.data);
+        setAssignments(assignmentsResponse.data.items);
       }
     } catch (error) {
       console.error('Error loading data:', error);
