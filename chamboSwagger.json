@@ -3073,13 +3073,26 @@
             "type": "integer",
             "format": "int32"
           },
-          "totalCompleted": {
-            "type": "integer",
-            "format": "int32"
-          },
           "inProgress": {
             "type": "integer",
             "format": "int32"
+          },
+          "submittedToSupervisorCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "sentBackCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "approvedCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalCompleted": {
+            "type": "integer",
+            "format": "int32",
+            "deprecated": true
           },
           "recentFiles": {
             "type": "array",

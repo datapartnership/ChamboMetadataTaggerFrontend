@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FileText, Plus, RefreshCw, Cloud, Eye, FolderOpen, CheckCircle2, Circle, UserPlus } from 'lucide-react';
+import { FileText, Plus, RefreshCw, Cloud, Eye, FolderOpen, CheckCircle2, Circle, UserPlus, ChevronUp, ChevronDown } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { adminApi } from '../../services/api';
 import { BlobFileDto, User, FileMetadataDto } from '../../types';
@@ -29,6 +29,9 @@ export const FilesView = () => {
   const [assignedTotalPages, setAssignedTotalPages] = useState(0);
   const [assignedHasNext, setAssignedHasNext] = useState(false);
   const [assignedHasPrev, setAssignedHasPrev] = useState(false);
+  type FilesSortField = 'uploadedAt' | 'fileName';
+  const [assignedSortBy, setAssignedSortBy] = useState<FilesSortField>('uploadedAt');
+  const [assignedIsDescending, setAssignedIsDescending] = useState(true);
   // Unassigned files tab state
   const [unassignedFiles, setUnassignedFiles] = useState<FileMetadataDto[]>([]);
   const [unassignedPage, setUnassignedPage] = useState(1);
@@ -37,6 +40,8 @@ export const FilesView = () => {
   const [unassignedTotalPages, setUnassignedTotalPages] = useState(0);
   const [unassignedHasNext, setUnassignedHasNext] = useState(false);
   const [unassignedHasPrev, setUnassignedHasPrev] = useState(false);
+  const [unassignedSortBy, setUnassignedSortBy] = useState<FilesSortField>('uploadedAt');
+  const [unassignedIsDescending, setUnassignedIsDescending] = useState(true);
   const [taggers, setTaggers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
@@ -65,11 +70,11 @@ export const FilesView = () => {
 
   useEffect(() => {
     if (token) loadAssignedFiles();
-  }, [token, assignedPage, assignedPageSize]);
+  }, [token, assignedPage, assignedPageSize, assignedSortBy, assignedIsDescending]);
 
   useEffect(() => {
     if (token) loadUnassignedFiles();
-  }, [token, unassignedPage, unassignedPageSize]);
+  }, [token, unassignedPage, unassignedPageSize, unassignedSortBy, unassignedIsDescending]);
 
   const loadTaggers = async () => {
     if (!token) return;
@@ -108,7 +113,7 @@ export const FilesView = () => {
     if (!token) return;
     setLoading(true);
     try {
-      const res = await adminApi.getFiles(token, { page: assignedPage, pageSize: assignedPageSize });
+      const res = await adminApi.getFiles(token, { page: assignedPage, pageSize: assignedPageSize, sortBy: assignedSortBy, isDescending: assignedIsDescending });
       if (res.success) {
         setAssignedFiles(res.data.items);
         setAssignedTotalCount(res.data.totalCount);
@@ -127,7 +132,7 @@ export const FilesView = () => {
     if (!token) return;
     setLoading(true);
     try {
-      const res = await adminApi.getUnassignedFiles(token, { page: unassignedPage, pageSize: unassignedPageSize });
+      const res = await adminApi.getUnassignedFiles(token, { page: unassignedPage, pageSize: unassignedPageSize, sortBy: unassignedSortBy, isDescending: unassignedIsDescending });
       if (res.success) {
         setUnassignedFiles(res.data.items);
         setUnassignedTotalCount(res.data.totalCount);
@@ -195,6 +200,31 @@ export const FilesView = () => {
   const handleAssignFile = (file: FileMetadataDto) => {
     setSelectedFile(file);
     setShowAssignFileModal(true);
+  };
+
+  const handleAssignedSort = (field: FilesSortField) => {
+    if (assignedSortBy === field) {
+      setAssignedIsDescending((prev) => !prev);
+    } else {
+      setAssignedSortBy(field);
+      setAssignedIsDescending(false);
+    }
+    setAssignedPage(1);
+  };
+
+  const handleUnassignedSort = (field: FilesSortField) => {
+    if (unassignedSortBy === field) {
+      setUnassignedIsDescending((prev) => !prev);
+    } else {
+      setUnassignedSortBy(field);
+      setUnassignedIsDescending(false);
+    }
+    setUnassignedPage(1);
+  };
+
+  const SortIcon = ({ field, currentSortBy, currentIsDescending }: { field: string; currentSortBy: string; currentIsDescending: boolean }) => {
+    if (currentSortBy !== field) return <ChevronUp className="w-3 h-3 opacity-30" />;
+    return currentIsDescending ? <ChevronDown className="w-3 h-3" /> : <ChevronUp className="w-3 h-3" />;
   };
 
   const handleAssignFileSuccess = () => {
@@ -385,36 +415,60 @@ export const FilesView = () => {
         <div className="overflow-x-auto">
           {activeTab === 'assigned' ? (
             <>
-              {/* Status Filter */}
-              <div className="p-4 border-b border-slate-200 bg-white flex flex-wrap items-center gap-2">
-                <span className="text-xs font-medium text-slate-500 uppercase tracking-wider mr-1">Filter:</span>
-                {([
-                  { value: 'all', label: 'All' },
-                  { value: 'Assigned', label: 'Assigned' },
-                  { value: 'SubmittedToSupervisor', label: 'Submitted' },
-                  { value: 'SendBackToTagger', label: 'Sent Back' },
-                  { value: 'ApprovedBySupervisor', label: 'Approved' },
-                ] as const).map(({ value, label }) => (
+              <div className="p-4 border-b border-slate-200 bg-white flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-medium text-slate-500 uppercase tracking-wider mr-1">Filter:</span>
+                  {([
+                    { value: 'all', label: 'All' },
+                    { value: 'Assigned', label: 'Assigned' },
+                    { value: 'SubmittedToSupervisor', label: 'Submitted' },
+                    { value: 'SendBackToTagger', label: 'Sent Back' },
+                    { value: 'ApprovedBySupervisor', label: 'Approved' },
+                  ] as const).map(({ value, label }) => (
+                    <button
+                      key={value}
+                      onClick={() => { setAssignedStatusFilter(value); setAssignedPage(1); }}
+                      className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                        assignedStatusFilter === value
+                          ? value === 'all'
+                            ? 'bg-slate-700 text-white'
+                            : value === 'ApprovedBySupervisor'
+                            ? 'bg-green-600 text-white'
+                            : value === 'SubmittedToSupervisor'
+                            ? 'bg-blue-600 text-white'
+                            : value === 'SendBackToTagger'
+                            ? 'bg-amber-500 text-white'
+                            : 'bg-slate-600 text-white'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">Sort:</span>
                   <button
-                    key={value}
-                    onClick={() => { setAssignedStatusFilter(value); setAssignedPage(1); }}
-                    className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                      assignedStatusFilter === value
-                        ? value === 'all'
-                          ? 'bg-slate-700 text-white'
-                          : value === 'ApprovedBySupervisor'
-                          ? 'bg-green-600 text-white'
-                          : value === 'SubmittedToSupervisor'
-                          ? 'bg-blue-600 text-white'
-                          : value === 'SendBackToTagger'
-                          ? 'bg-amber-500 text-white'
-                          : 'bg-slate-600 text-white'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    onClick={() => handleAssignedSort('uploadedAt')}
+                    className={`flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-medium border transition-colors ${
+                      assignedSortBy === 'uploadedAt'
+                        ? 'bg-blue-50 border-blue-300 text-blue-700'
+                        : 'bg-slate-100 border-transparent text-slate-600 hover:bg-slate-200'
                     }`}
                   >
-                    {label}
+                    Date <SortIcon field="uploadedAt" currentSortBy={assignedSortBy} currentIsDescending={assignedIsDescending} />
                   </button>
-                ))}
+                  <button
+                    onClick={() => handleAssignedSort('fileName')}
+                    className={`flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-medium border transition-colors ${
+                      assignedSortBy === 'fileName'
+                        ? 'bg-blue-50 border-blue-300 text-blue-700'
+                        : 'bg-slate-100 border-transparent text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    Filename <SortIcon field="fileName" currentSortBy={assignedSortBy} currentIsDescending={assignedIsDescending} />
+                  </button>
+                </div>
               </div>
 
               <table className="w-full">
@@ -510,6 +564,31 @@ export const FilesView = () => {
             </>
           ) : activeTab === 'unassigned' ? (
             <>
+              {/* Sort Controls */}
+              <div className="p-4 border-b border-slate-200 bg-white flex flex-wrap items-center gap-2">
+                <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">Sort:</span>
+                <button
+                  onClick={() => handleUnassignedSort('uploadedAt')}
+                  className={`flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-medium border transition-colors ${
+                    unassignedSortBy === 'uploadedAt'
+                      ? 'bg-blue-50 border-blue-300 text-blue-700'
+                      : 'bg-slate-100 border-transparent text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  Date <SortIcon field="uploadedAt" currentSortBy={unassignedSortBy} currentIsDescending={unassignedIsDescending} />
+                </button>
+                <button
+                  onClick={() => handleUnassignedSort('fileName')}
+                  className={`flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-medium border transition-colors ${
+                    unassignedSortBy === 'fileName'
+                      ? 'bg-blue-50 border-blue-300 text-blue-700'
+                      : 'bg-slate-100 border-transparent text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  Filename <SortIcon field="fileName" currentSortBy={unassignedSortBy} currentIsDescending={unassignedIsDescending} />
+                </button>
+              </div>
+
               {/* Bulk Selection Toolbar */}
               {selectedFileIds.size > 0 && (
                 <div className="p-4 border-b border-slate-200 bg-blue-50 flex items-center justify-between">

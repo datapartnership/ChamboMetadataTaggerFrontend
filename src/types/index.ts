@@ -151,8 +151,12 @@ export interface StudentWithStatsDto {
   username: string;
   email: string;
   totalAssigned: number;
-  totalCompleted: number;
   inProgress: number;
+  submittedToSupervisorCount: number;
+  sentBackCount: number;
+  approvedCount: number;
+  /** @deprecated use approvedCount */
+  totalCompleted: number;
   recentFiles: FileMetadataDto[];
 }
 

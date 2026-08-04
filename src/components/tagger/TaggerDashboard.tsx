@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { LogOut, FileText, CheckCircle, Clock, AlertTriangle } from 'lucide-react';
+import { LogOut, FileText, CheckCircle, Clock, AlertTriangle, ChevronUp, ChevronDown } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { taggerApi } from '../../services/api';
 import { FileMetadataDto } from '../../types';
@@ -18,17 +18,20 @@ export const TaggerDashboard = () => {
   const [totalPages, setTotalPages] = useState(0);
   const [hasNextPage, setHasNextPage] = useState(false);
   const [hasPreviousPage, setHasPreviousPage] = useState(false);
+  type SortField = 'uploadedAt' | 'fileName';
+  const [sortBy, setSortBy] = useState<SortField>('uploadedAt');
+  const [isDescending, setIsDescending] = useState(true);
 
   useEffect(() => {
     loadFiles();
-  }, [token, page, pageSize]);
+  }, [token, page, pageSize, sortBy, isDescending]);
 
   const loadFiles = async () => {
     if (!token) return;
 
     setLoading(true);
     try {
-      const response = await taggerApi.getMyFiles(token, { page, pageSize });
+      const response = await taggerApi.getMyFiles(token, { page, pageSize, sortBy, isDescending });
       if (response.success) {
         setFiles(response.data.items);
         setTotalCount(response.data.totalCount);
@@ -56,6 +59,21 @@ export const TaggerDashboard = () => {
   const handleFileUpdate = () => {
     setSelectedFile(null);
     loadFiles();
+  };
+
+  const handleSort = (field: SortField) => {
+    if (sortBy === field) {
+      setIsDescending((prev) => !prev);
+    } else {
+      setSortBy(field);
+      setIsDescending(false);
+    }
+    setPage(1);
+  };
+
+  const SortIcon = ({ field }: { field: SortField }) => {
+    if (sortBy !== field) return <ChevronUp className="w-3 h-3 opacity-30" />;
+    return isDescending ? <ChevronDown className="w-3 h-3" /> : <ChevronUp className="w-3 h-3" />;
   };
 
   const completedCount = files.filter(f => f.status === 'ApprovedBySupervisor').length;
@@ -218,6 +236,30 @@ export const TaggerDashboard = () => {
               >
                 <CheckCircle className="w-3.5 h-3.5" />
                 Approved ({completedCount})
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2 mb-4">
+              <span className="text-sm font-medium text-slate-700">Sort:</span>
+              <button
+                onClick={() => handleSort('uploadedAt')}
+                className={`flex items-center gap-1 px-3 py-1 rounded-lg text-sm font-medium border transition-colors ${
+                  sortBy === 'uploadedAt'
+                    ? 'bg-blue-50 border-blue-300 text-blue-700'
+                    : 'bg-slate-100 border-transparent text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                Date <SortIcon field="uploadedAt" />
+              </button>
+              <button
+                onClick={() => handleSort('fileName')}
+                className={`flex items-center gap-1 px-3 py-1 rounded-lg text-sm font-medium border transition-colors ${
+                  sortBy === 'fileName'
+                    ? 'bg-blue-50 border-blue-300 text-blue-700'
+                    : 'bg-slate-100 border-transparent text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                Filename <SortIcon field="fileName" />
               </button>
             </div>
 

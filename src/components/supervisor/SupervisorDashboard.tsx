@@ -59,8 +59,8 @@ export const SupervisorDashboard = () => {
   };
 
   const totalAssigned = students.reduce((sum, s) => sum + s.totalAssigned, 0);
-  const totalCompleted = students.reduce((sum, s) => sum + s.totalCompleted, 0);
-  const totalInProgress = students.reduce((sum, s) => sum + s.inProgress, 0);
+  const totalApproved = students.reduce((sum, s) => sum + s.approvedCount, 0);
+  const totalSubmitted = students.reduce((sum, s) => sum + s.submittedToSupervisorCount, 0);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
@@ -127,7 +127,7 @@ export const SupervisorDashboard = () => {
               </div>
               <h3 className="text-sm font-medium text-slate-600">Submitted to Supervisor</h3>
             </div>
-            <p className="text-3xl font-bold text-slate-900">{totalInProgress}</p>
+            <p className="text-3xl font-bold text-slate-900">{totalSubmitted}</p>
           </div>
 
           <div className="bg-white rounded-2xl shadow-sm p-6">
@@ -137,7 +137,7 @@ export const SupervisorDashboard = () => {
               </div>
               <h3 className="text-sm font-medium text-slate-600">Approved</h3>
             </div>
-            <p className="text-3xl font-bold text-slate-900">{totalCompleted}</p>
+            <p className="text-3xl font-bold text-slate-900">{totalApproved}</p>
           </div>
         </div>
 
