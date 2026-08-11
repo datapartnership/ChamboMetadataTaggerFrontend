@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect } from 'react';
-import { ChevronDown, ChevronRight, X, Check } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { ChevronDown, ChevronRight, X, Check, Search } from 'lucide-react';
 import { UNBIS_THESAURUS, ThemeLevel1, ThemeLevel2, SelectedTheme, formatThemeDisplay } from '../../data/unbisThesaurus';
 
 interface ThemeSelectorProps {
@@ -12,19 +12,20 @@ interface ThemeSelectorProps {
 export const ThemeSelector = ({ selectedThemes, onChange, maxThemes = 3, disabled = false }: ThemeSelectorProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [expandedLevel1, setExpandedLevel1] = useState<string | null>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const close = () => {
+    setIsOpen(false);
+    setExpandedLevel1(null);
+    setSearchQuery('');
+  };
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-        setExpandedLevel1(null);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen]);
 
   const isThemeSelected = (level1Code: string, level2Code?: string): boolean => {
     return selectedThemes.some(t => {
@@ -81,12 +82,29 @@ export const ThemeSelector = ({ selectedThemes, onChange, maxThemes = 3, disable
     setExpandedLevel1(expandedLevel1 === code ? null : code);
   };
 
+  const query = searchQuery.toLowerCase().trim();
+
+  const visibleThesaurus = query
+    ? UNBIS_THESAURUS.filter(
+        (l1) =>
+          l1.name.toLowerCase().includes(query) ||
+          l1.subThemes.some((l2) => l2.name.toLowerCase().includes(query))
+      )
+    : UNBIS_THESAURUS;
+
+  const getVisibleSubThemes = (level1: ThemeLevel1) => {
+    if (!query || level1.name.toLowerCase().includes(query)) return level1.subThemes;
+    return level1.subThemes.filter((l2) => l2.name.toLowerCase().includes(query));
+  };
+
+  const isExpanded = (code: string) => (query ? true : expandedLevel1 === code);
+
   return (
-    <div className="relative" ref={dropdownRef}>
+    <div className="relative">
       {/* Selected themes display */}
       <div 
         className={`min-h-[44px] p-3 bg-white border border-slate-200 rounded-lg focus-within:ring-2 focus-within:ring-primary-700 focus-within:border-transparent ${disabled ? 'bg-slate-50 cursor-not-allowed' : 'cursor-pointer'}`}
-        onClick={() => !disabled && setIsOpen(!isOpen)}
+        onClick={() => { if (!disabled) setIsOpen(true); }}
       >
         {selectedThemes.length === 0 ? (
           <span className="text-slate-400">Select themes from UNBIS Thesaurus...</span>
@@ -113,61 +131,110 @@ export const ThemeSelector = ({ selectedThemes, onChange, maxThemes = 3, disable
             ))}
           </div>
         )}
-        <ChevronDown className={`absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
       </div>
 
-      {/* Dropdown menu */}
+      {/* UNBIS Thesaurus modal */}
       {isOpen && !disabled && (
-        <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-80 overflow-y-auto">
-          {UNBIS_THESAURUS.map((level1) => (
-            <div key={level1.code} className="border-b border-slate-100 last:border-b-0">
-              {/* Level 1 header */}
-              <div 
-                className="flex items-center gap-2 px-3 py-2.5 hover:bg-slate-50 cursor-pointer"
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={close}>
+          <div
+            className="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[80vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b border-slate-200">
+              <h2 className="text-lg font-semibold text-slate-900">Select UNBIS Themes</h2>
+              <button
+                type="button"
+                onClick={close}
+                className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors"
               >
-                <button
-                  type="button"
-                  onClick={(e) => toggleLevel1Expand(level1.code, e)}
-                  className="p-0.5 hover:bg-slate-200 rounded transition-colors"
-                >
-                  {expandedLevel1 === level1.code ? (
-                    <ChevronDown className="w-4 h-4 text-slate-600" />
-                  ) : (
-                    <ChevronRight className="w-4 h-4 text-slate-600" />
-                  )}
-                </button>
-                <div 
-                  className="flex-1 flex items-center justify-between"
-                  onClick={() => handleSelectLevel1(level1)}
-                >
-                  <span className="font-medium text-slate-900">{level1.name}</span>
-                  {isThemeSelected(level1.code) && (
-                    <Check className="w-4 h-4 text-primary-600" />
-                  )}
-                </div>
-              </div>
+                <X className="w-5 h-5 text-slate-600" />
+              </button>
+            </div>
 
-              {/* Level 2 items */}
-              {expandedLevel1 === level1.code && (
-                <div className="bg-slate-50 border-t border-slate-100">
-                  {level1.subThemes.map((level2) => (
-                    <div
-                      key={level2.code}
-                      className={`flex items-center justify-between px-3 py-2 pl-10 hover:bg-slate-100 cursor-pointer ${
-                        isThemeSelected(level1.code, level2.code) ? 'bg-primary-50' : ''
-                      }`}
-                      onClick={() => handleSelectLevel2(level1, level2)}
-                    >
-                      <span className="text-sm text-slate-700">{level2.name}</span>
-                      {isThemeSelected(level1.code, level2.code) && (
-                        <Check className="w-4 h-4 text-primary-600" />
-                      )}
+            {/* Search */}
+            <div className="p-3 border-b border-slate-100">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search themes..."
+                  autoFocus
+                  className="w-full pl-8 pr-3 py-1.5 text-sm border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-700 focus:border-transparent"
+                />
+              </div>
+            </div>
+
+            {/* Scrollable list */}
+            <div className="flex-1 overflow-y-auto">
+              {visibleThesaurus.length === 0 ? (
+                <div className="px-4 py-6 text-sm text-slate-400 text-center">No themes match "{searchQuery}".</div>
+              ) : (
+                visibleThesaurus.map((level1) => (
+                  <div key={level1.code} className="border-b border-slate-100 last:border-b-0">
+                    <div className="flex items-center gap-2 px-3 py-2.5 hover:bg-slate-50 cursor-pointer">
+                      <button
+                        type="button"
+                        onClick={(e) => toggleLevel1Expand(level1.code, e)}
+                        className="p-0.5 hover:bg-slate-200 rounded transition-colors"
+                      >
+                        {isExpanded(level1.code) ? (
+                          <ChevronDown className="w-4 h-4 text-slate-600" />
+                        ) : (
+                          <ChevronRight className="w-4 h-4 text-slate-600" />
+                        )}
+                      </button>
+                      <div
+                        className="flex-1 flex items-center justify-between"
+                        onClick={() => handleSelectLevel1(level1)}
+                      >
+                        <span className="font-medium text-slate-900">{level1.name}</span>
+                        {isThemeSelected(level1.code) && (
+                          <Check className="w-4 h-4 text-primary-600" />
+                        )}
+                      </div>
                     </div>
-                  ))}
-                </div>
+
+                    {isExpanded(level1.code) && (
+                      <div className="bg-slate-50 border-t border-slate-100">
+                        {getVisibleSubThemes(level1).map((level2) => (
+                          <div
+                            key={level2.code}
+                            className={`flex items-center justify-between px-3 py-2 pl-10 hover:bg-slate-100 cursor-pointer ${
+                              isThemeSelected(level1.code, level2.code) ? 'bg-primary-50' : ''
+                            }`}
+                            onClick={() => handleSelectLevel2(level1, level2)}
+                          >
+                            <span className="text-sm text-slate-700">{level2.name}</span>
+                            {isThemeSelected(level1.code, level2.code) && (
+                              <Check className="w-4 h-4 text-primary-600" />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))
               )}
             </div>
-          ))}
+
+            {/* Footer */}
+            <div className="flex items-center justify-between p-4 border-t border-slate-200 bg-slate-50 rounded-b-2xl">
+              <span className="text-sm text-slate-500">
+                {selectedThemes.length} / {maxThemes} selected
+              </span>
+              <button
+                type="button"
+                onClick={close}
+                className="px-4 py-2 bg-primary-700 text-white text-sm font-medium rounded-lg hover:bg-primary-600 transition-colors"
+              >
+                Done
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

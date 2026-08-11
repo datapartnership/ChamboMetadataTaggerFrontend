@@ -13,7 +13,7 @@ export const TaggerDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'all' | 'inprogress' | 'submitted' | 'needsrevision' | 'completed'>('all');
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
+  const [pageSize, setPageSize] = useState(100);
   const [totalCount, setTotalCount] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const [hasNextPage, setHasNextPage] = useState(false);
