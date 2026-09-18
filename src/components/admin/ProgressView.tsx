@@ -17,10 +17,17 @@ export const ProgressView = () => {
   const [loading, setLoading] = useState(true);
   const [expandedUserId, setExpandedUserId] = useState<number | null>(null);
   const [expandedStatus, setExpandedStatus] = useState<string | null>(null);
+  // Aggregate totals across ALL taggers (not just the current page) so the
+  // summary cards and "% approved" stat reflect everyone, not only the page shown.
+  const [allProgress, setAllProgress] = useState<TaggingProgressDto[]>([]);
 
   useEffect(() => {
     loadProgress();
   }, [page, pageSize, token]);
+
+  useEffect(() => {
+    loadAllProgress();
+  }, [token]);
 
   const loadProgress = async () => {
     if (!token) return;
@@ -39,6 +46,30 @@ export const ProgressView = () => {
       console.error('Error loading progress:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Fetches every page of tagger progress purely to compute totals across all
+  // taggers, independent of the paginated table used for the row-by-row view.
+  const loadAllProgress = async () => {
+    if (!token) return;
+
+    try {
+      const largePageSize = 200;
+      let currentPage = 1;
+      let items: TaggingProgressDto[] = [];
+      // Safety cap to avoid an infinite loop if the API ever misreports hasNextPage.
+      const maxPages = 1000;
+      while (currentPage <= maxPages) {
+        const response = await adminApi.getTaggingProgress(token, { page: currentPage, pageSize: largePageSize });
+        if (!response.success) break;
+        items = items.concat(response.data.items);
+        if (!response.data.hasNextPage) break;
+        currentPage += 1;
+      }
+      setAllProgress(items);
+    } catch (error) {
+      console.error('Error loading aggregate progress:', error);
     }
   };
 
@@ -61,10 +92,10 @@ export const ProgressView = () => {
     return Math.round((completed / total) * 100);
   };
 
-  const totalAssigned = progress.reduce((s, p) => s + p.totalAssigned, 0);
-  const totalApproved = progress.reduce((s, p) => s + p.totalApproved, 0);
-  const totalSubmitted = progress.reduce((s, p) => s + p.totalSubmitted, 0);
-  const totalSentBack = progress.reduce((s, p) => s + p.totalSentBack, 0);
+  const totalAssigned = allProgress.reduce((s, p) => s + p.totalAssigned, 0);
+  const totalApproved = allProgress.reduce((s, p) => s + p.totalApproved, 0);
+  const totalSubmitted = allProgress.reduce((s, p) => s + p.totalSubmitted, 0);
+  const totalSentBack = allProgress.reduce((s, p) => s + p.totalSentBack, 0);
 
   if (loading) {
     return (

@@ -17,25 +17,39 @@ export const SupervisorsView = () => {
     loadData();
   }, [token]);
 
+  // Fetches every page of a paginated endpoint so counts/filters below are never
+  // silently truncated when there are more than a single page of results.
+  const fetchAllPages = async <T,>(
+    fetchPage: (page: number, pageSize: number) => Promise<{ success: boolean; data: { items: T[]; hasNextPage: boolean } }>
+  ): Promise<T[]> => {
+    const pageSize = 200;
+    let page = 1;
+    let items: T[] = [];
+    // Safety cap to avoid an infinite loop if the API ever misreports hasNextPage.
+    const maxPages = 1000;
+    while (page <= maxPages) {
+      const response = await fetchPage(page, pageSize);
+      if (!response.success) break;
+      items = items.concat(response.data.items);
+      if (!response.data.hasNextPage) break;
+      page += 1;
+    }
+    return items;
+  };
+
   const loadData = async () => {
     if (!token) return;
 
     setLoading(true);
     try {
-      const [usersResponse, assignmentsResponse] = await Promise.all([
-        adminApi.getUsers(token, { page: 1, pageSize: 200 }),
-        adminApi.getSupervisorAssignments(token, { page: 1, pageSize: 200 }),
+      const [allUsers, allAssignments] = await Promise.all([
+        fetchAllPages((page, pageSize) => adminApi.getUsers(token, { page, pageSize })),
+        fetchAllPages((page, pageSize) => adminApi.getSupervisorAssignments(token, { page, pageSize })),
       ]);
 
-      if (usersResponse.success) {
-        const allUsers = usersResponse.data.items;
-        setSupervisors(allUsers.filter(u => u.role === 'Supervisor'));
-        setStudents(allUsers.filter(u => u.role === 'Tagger'));
-      }
-
-      if (assignmentsResponse.success) {
-        setAssignments(assignmentsResponse.data.items);
-      }
+      setSupervisors(allUsers.filter(u => u.role === 'Supervisor'));
+      setStudents(allUsers.filter(u => u.role === 'Tagger'));
+      setAssignments(allAssignments);
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
