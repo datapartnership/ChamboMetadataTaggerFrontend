@@ -1,0 +1,385 @@
+# azure-pipeline.yaml (base)
+
+# .cicd/header.yaml
+trigger:
+  branches:
+    include: [dev,qa,main]
+  paths:
+    exclude:
+      - .cicd-DEC/
+
+variables:
+  - group: "Dec-ChamboFrontend-CICD-Configuration"
+  - name: environment_list
+    value: DEV,QA,PROD
+  - name: trunk_based
+    value: 'false'
+
+pool: $(PIPELINE_AGENTPOOL)
+
+name: $(TeamProject)_$(Build.DefinitionName)_$(SourceBranchName)_$(Date:yyyyMMdd)$(Rev:r)
+
+stages:
+- ${{ each envName in split(variables.environment_list, ',') }}:
+  - stage: BuildApplication_${{ envName }}
+    displayName: "Process ${{ envName }}"
+    condition: |
+      and(
+        or( 
+          ne(variables['trunk_based'], 'true'),
+          succeeded()
+        ),
+        or(
+          eq(variables['trunk_based'], 'true'),
+          and(
+            eq(variables['trunk_based'], 'false'),
+            or(
+              and(
+                eq('${{ envName }}', 'PROD'),
+                eq(variables['Build.SourceBranchName'], 'main')
+              ),
+              and(
+                ne('${{ envName }}', 'PROD'),
+                eq(lower('${{ envName }}'), variables['Build.SourceBranchName'])
+              )
+            )
+          )
+        )
+      )
+    jobs:
+
+    - job: BuildJob
+      displayName: "Build NodeJS Application (${{ envName }})"
+      steps:
+        - checkout: self
+
+        - task: UseNode@1
+          condition: ne(variables['BUILD_NODEJS_VERSION'], 'BuiltIn')
+          inputs:
+            version: $(BUILD_NODEJS_VERSION)
+          displayName: 'Install Specific Node.js version'
+
+        - bash: |
+            set -euo pipefail
+
+            cat > .npmrc <<'EOF'
+            registry=https://artifactory.worldbank.org/artifactory/api/npm/${ARTIFACTORY_REGISTRY}/
+            //artifactory.worldbank.org/artifactory/api/npm/${ARTIFACTORY_REGISTRY}/:username=${ARTIFACTORY_USERNAME}
+            //artifactory.worldbank.org/artifactory/api/npm/${ARTIFACTORY_REGISTRY}/:_password=${ARTIFACTORY_PASSWORD}
+            always-auth=true
+            block-scoped-registries=true
+            EOF
+          displayName: 'Write .npmrc (inline)'
+          env:
+            ARTIFACTORY_REGISTRY: $(BUILD_ARTIFACTORY_REGISTRY)
+            ARTIFACTORY_USERNAME: $(BUILD_ARTIFACTORY_USERNAME)
+            ARTIFACTORY_PASSWORD: $(BUILD_ARTIFACTORY_PASSWORD)
+
+        - bash: |
+            npm install
+          displayName: 'Install Application Dependencies'
+          env:
+            ARTIFACTORY_REGISTRY: $(BUILD_ARTIFACTORY_REGISTRY)
+            ARTIFACTORY_USERNAME: $(BUILD_ARTIFACTORY_USERNAME)
+            ARTIFACTORY_PASSWORD: $(BUILD_ARTIFACTORY_PASSWORD)
+
+        - bash: |
+            npm run build
+          displayName: 'Run build script for ${{ envName }}'
+          env:
+            ARTIFACTORY_REGISTRY: $(BUILD_ARTIFACTORY_REGISTRY)
+            ARTIFACTORY_USERNAME: $(BUILD_ARTIFACTORY_USERNAME)
+            ARTIFACTORY_PASSWORD: $(BUILD_ARTIFACTORY_PASSWORD)
+
+        - bash: |
+            npm prune --omit=dev
+          displayName: 'Remove extraneous packages'
+          env:
+            ARTIFACTORY_REGISTRY: $(BUILD_ARTIFACTORY_REGISTRY)
+            ARTIFACTORY_USERNAME: $(BUILD_ARTIFACTORY_USERNAME)
+            ARTIFACTORY_PASSWORD: $(BUILD_ARTIFACTORY_PASSWORD)
+
+        - bash: |
+            rm -f .npmrc
+          displayName: 'Remove npm credentials'
+          condition: always()
+
+        - task: ArchiveFiles@2
+          displayName: "Archive Build Files to Zip (${{ envName }})"
+          inputs:
+            rootFolderOrFile: '$(Build.SourcesDirectory)/dist'
+            includeRootFolder: false
+            archiveType: 'zip'
+            archiveFile: '$(Build.ArtifactStagingDirectory)/$(Build.BuildId)_${{ envName }}.zip'
+            replaceExistingArchive: true
+
+        - task: PublishBuildArtifacts@1
+          displayName: 'Publish Build Artifact (application_${{ envName }})'
+          inputs:
+            pathtoPublish: '$(Build.ArtifactStagingDirectory)/$(Build.BuildId)_${{ envName }}.zip'
+            artifactName: 'application_${{ envName }}'
+
+  # ===================== SCANS (placeholder) ===================== #
+    # Fragment: scan.yaml
+  
+    - job: PrismaScan
+      displayName: PrismaScan (${{ envName }})
+      dependsOn: BuildJob
+      condition: |
+        and(
+          succeeded(),
+          or(
+            ne('${{ envName }}', 'DEV'),
+            ne(variables['SECURITY_OVERRIDE_DEV_SCAN'], 'Enabled')
+          ),
+          eq(variables['SECURITY_PRISMACLOUD_SCAN'], 'Enabled')
+        )
+      workspace:
+        clean: all
+      steps:
+        - task: DownloadBuildArtifacts@0
+          displayName: 'Download Build Artifacts'
+          inputs:
+            artifactName: application_${{ envName }}
+            downloadPath: $(System.DefaultWorkingDirectory)
+  
+        - task: ExtractFiles@1
+          displayName: 'Extract Build Artifacts'
+          inputs:
+            archiveFilePatterns: '$(System.DefaultWorkingDirectory)/application_${{ envName }}/$(Build.BuildId)_${{ envName }}.zip'
+            destinationFolder: '$(System.DefaultWorkingDirectory)/application/extracted'
+  
+        - task: Bash@3
+          displayName: 'Checkov Static Code Analysis (isolated)'
+          inputs:
+            targetType: 'inline'
+            script: |
+              set -euo pipefail
+              cd "$(System.DefaultWorkingDirectory)"
+  
+              echo "=== Listing extracted payload ==="
+              find application/extracted -maxdepth 3 -type f | head -n 200 || true
+  
+              python3 -m venv .checkov-venv
+              . .checkov-venv/bin/activate
+              pip install --upgrade pip
+              pip install --upgrade checkov
+  
+              mkdir -p "$(System.DefaultWorkingDirectory)/checkov-report"
+  
+              # Skip noisy dirs if present.
+              checkov -s \
+                -d "$(System.DefaultWorkingDirectory)/application/extracted" \
+                --framework secrets,yaml,dockerfile \
+                --skip-framework bitbucket_pipelines,argo_workflows,github_configuration,github_actions,gitlab_configuration,gitlab_ci,bitbucket_configuration,kustomize,openapi,sca_package,sca_image \
+                --skip-path "node_modules,dist,.git" \
+                --repo-id "$(Build.Repository.Name)/$(Build.SourceBranchName)" \
+                --prisma-api-url "$PRISMA_API_URL" \
+                -o cli -o junitxml \
+                --output-file-path console,"$(System.DefaultWorkingDirectory)/checkov-report/checkov-report.xml"
+  
+              echo "=== Checkov finished. JUnit at: $(System.DefaultWorkingDirectory)/checkov-report/checkov-report.xml ==="
+          env:
+            PRISMA_API_URL: $(SECURITY_PRISMACLOUD_API_URL)
+            BC_API_KEY: $(SECURITY_PRISMACLOUD_BC_API_KEY)
+  
+        - task: PublishTestResults@2
+          displayName: 'Publish Checkov Test Results'
+          inputs:
+            testResultsFormat: 'JUnit'
+            testResultsFile: 'checkov-report.xml'
+            searchFolder: '$(System.DefaultWorkingDirectory)/checkov-report'
+            mergeTestResults: true
+            testRunTitle: CheckOV Scan
+            failTaskOnFailedTests: false
+            publishRunAttachments: true
+  
+    - job: VeracodeScan
+      displayName: VeracodeScan (${{ envName }})
+      dependsOn: BuildJob
+      condition: |
+        and(
+          succeeded(),
+          or(
+            ne('${{ envName }}', 'DEV'),
+            ne(variables['SECURITY_OVERRIDE_DEV_SCAN'], 'Enabled')
+          ),
+          eq(variables['SECURITY_VERACODE_SCAN'], 'Enabled')
+        )
+      workspace:
+        clean: all
+      steps:
+        - task: DownloadBuildArtifacts@0
+          displayName: 'Download Build Artifacts'
+          inputs:
+            artifactName: application_${{ envName }}
+            downloadPath: $(System.DefaultWorkingDirectory)
+  
+        - task: ExtractFiles@1
+          displayName: 'Extract Build Artifacts'
+          inputs:
+            archiveFilePatterns: '$(System.DefaultWorkingDirectory)/application_${{ envName }}/$(Build.BuildId)_${{ envName }}.zip'
+            destinationFolder: '$(System.DefaultWorkingDirectory)/application/extracted'
+  
+        - task: JFrog.jfrog-artifactory-vsts-extension.jfrog-cli-generic.JfrogCli@1
+          displayName: 'JFrog CLI'
+          inputs:
+            artifactoryService: 'AzureDevOps-WBG-Artifactory-Generic-ReadOnly'
+            command: |
+              jfrog rt download itspl-pe-cicd-helper-scripts/OISHooks/* $(System.DefaultWorkingDirectory)/
+  
+        - task: PowerShell@2
+          displayName: 'SC-OIS-DEPENDENCY-CHECK-VERACODE-HOOK-$(DEPLOY_WEBAPP_APP_NAME)'
+          inputs:
+            targetType: filePath
+            filePath: '$(System.DefaultWorkingDirectory)/OISHooks/veracode_powershell.ps1'
+            arguments: >
+              -apiId "$(SECURITY_VERACODE_API_ID)"
+              -apiKey "$(SECURITY_VERACODE_API_KEY)"
+              -jfrogKey "$(SECURITY_VERACODE_JFROG_API_KEY)"
+            pwsh: true
+          env:
+            FILEPATH: $(System.DefaultWorkingDirectory)/application_${{ envName }}/$(Build.BuildId)_${{ envName }}.zip
+            APPNAME: ITSPL Entra ID AMS - $(Build.DefinitionName)
+            TEAMS: $(SECURITY_VERACODE_TEAMNAME)
+            CRITICALITY: HIGH
+            CASE_NUMBER: $(SECURITY_BLACKDUCK_ACN_NUMBER)
+            POLICY_NAME: OWASP_2017_CWE_Medium_Above
+            BUILDNUMBER: $(Build.BuildNumber)
+            BUILDNAME: $(Build.DefinitionName)
+            OISHookUserID: $(SECURITY_VERACODE_HOOK_USER)
+            OISHookPwd: $(SECURITY_VERACODE_HOOK_PASSWORD)
+  
+    - job: BlackDuckScan
+      displayName: BlackDuckScan (${{ envName }})
+      dependsOn: BuildJob
+      condition: |
+        and(
+          succeeded(),
+          or(
+            ne('${{ envName }}', 'DEV'),
+            ne(variables['SECURITY_OVERRIDE_DEV_SCAN'], 'Enabled')
+          ),
+          eq(variables['SECURITY_BLACKDUCK_SCAN'], 'Enabled')
+        )
+      workspace:
+        clean: all
+      steps:
+        - task: DownloadBuildArtifacts@0
+          displayName: 'Download Build Artifacts'
+          inputs:
+            artifactName: application_${{ envName }}
+            downloadPath: $(System.DefaultWorkingDirectory)
+  
+        - task: ExtractFiles@1
+          displayName: 'Extract Build Artifacts'
+          inputs:
+            archiveFilePatterns: '$(System.DefaultWorkingDirectory)/application_${{ envName }}/$(Build.BuildId)_${{ envName }}.zip'
+            destinationFolder: '$(System.DefaultWorkingDirectory)/application/extracted'
+  
+        - task: JFrog.jfrog-artifactory-vsts-extension.jfrog-cli-generic.JfrogCli@1
+          displayName: 'JFrog CLI'
+          inputs:
+            artifactoryService: 'AzureDevOps-WBG-Artifactory-Generic-ReadOnly'
+            command: |
+              jfrog rt download itspl-pe-cicd-helper-scripts/OISHooks/* $(System.DefaultWorkingDirectory)/ 
+  
+        - task: AmazonWebServices.aws-vsts-tools.S3Upload.S3Upload@1
+          displayName: 'S3 Upload: Upload All Build Artifacts for OIS SCAN'
+          enabled: true
+          inputs:
+            awsCredentials: AzureDevOps-WBG-OIS-S3-Service-Connection
+            regionName: $(SECURITY_BLACKDUCK_AWS_REGION)
+            bucketName: $(SECURITY_BLACKDUCK_OIS_S3_BUCKET_NAME)
+            sourceFolder: $(System.DefaultWorkingDirectory)/application/
+            globExpressions: '*.zip'
+            targetFolder: wbg-ois-dso-r1v1-pilot/$(SECURITY_BLACKDUCK_ACN_NUMBER)/DC/PKG
+            filesAcl: bucket-owner-full-control
+  
+        - task: Bash@3
+          displayName: 'SC-OIS-BLACKDUCK-DEPENDENCY-CHECK-HOOK-$(DEPLOY_WEBAPP_APP_NAME)'
+          enabled: true
+          inputs:
+            targetType: filePath
+            filePath: '$(System.DefaultWorkingDirectory)/OISHooks/blackduck.ps1'
+            arguments:
+          env:
+            SCNFILE: $(Build.BuildId)_${{ envName }}.zip
+            ACN: $(SECURITY_BLACKDUCK_ACN_NUMBER)
+            OISHookUserID: $(SECURITY_BLACKDUCK_USERNAME)
+            OISHookPwd: $(SECURITY_BLACKDUCK_PASSWD)
+            VERSION: 1.0
+
+  # ===================== DEPLOY (placeholder) ==================== #
+  # Fragment: deploy.yaml
+  
+    - job: DeployJob
+      displayName: "Deploy Application to WebApp (${{ envName }})"
+      dependsOn: [BuildJob, PrismaScan, VeracodeScan, BlackDuckScan]
+      condition: |
+        and(
+          succeeded('BuildJob'),
+          or(ne(variables['SECURITY_PRISMACLOUD_SCAN'],'Enabled'),  in(dependencies.PrismaScan.result, 'Succeeded', 'Skipped')),
+          or(ne(variables['SECURITY_VERACODE_SCAN'],'Enabled'),     in(dependencies.VeracodeScan.result, 'Succeeded', 'Skipped')),
+          or(ne(variables['SECURITY_BLACKDUCK_SCAN'],'Enabled'),    in(dependencies.BlackDuckScan.result, 'Succeeded', 'Skipped')),
+          ne(variables['DEPLOY_WEBAPP_SERVICE_CONNECTION_${{ envName }}'],''),
+          ne(variables['DEPLOY_WEBAPP_APP_NAME_${{ envName }}'],'')
+        )
+      steps:
+        - task: DownloadBuildArtifacts@0
+          displayName: 'Download Build Artifacts'
+          inputs:
+            artifactName: application_${{ envName }}
+            downloadPath: $(System.DefaultWorkingDirectory)
+  
+        - task: AzureWebApp@1
+          displayName: Deploy to Azure Linux Web App
+          inputs:
+            azureSubscription: $(DEPLOY_WEBAPP_SERVICE_CONNECTION_${{ envName }})
+            appType: $(DEPLOY_WEBAPP_APP_TYPE)
+            appName: $(DEPLOY_WEBAPP_APP_NAME_${{ envName }})
+            package: $(System.DefaultWorkingDirectory)/application_${{ envName }}/$(Build.BuildId)_${{ envName }}.zip
+            runtimeStack: $(DEPLOY_WEBAPP_RUNTIME_STACK)
+            startUpCommand: $(DEPLOY_WEBAPP_STARTUP_COMMAND)
+
+  # ================= POST-DEPLOY SCAN (placeholder) ============== #
+  # Fragment: postdeployscan.yaml
+  
+    - job: PostDeployScan
+      displayName: "Rapid7Scan (${{ envName }})"
+      dependsOn: DeployJob
+      condition: and(eq(dependencies.DeployJob.result, 'Succeeded'),
+                      eq(variables['SECURITY_RAPID7_SCAN'], 'Enabled'),
+                      or(ne(variables['Build.SourceBranchName'], 'DEV'),
+                        ne(variables['SECURITY_OVERRIDE_DEV_SCAN'], 'Enabled')))
+      workspace:
+        clean: all
+      steps:
+        - task: DownloadBuildArtifacts@0
+          displayName: 'Download Build Artifacts'
+          inputs:
+            artifactName: application_${{ envName }}
+            downloadPath: $(System.DefaultWorkingDirectory)
+  
+        - task: ExtractFiles@1
+          displayName: 'Extract Build Artifacts'
+          inputs:
+            archiveFilePatterns: '$(System.DefaultWorkingDirectory)/application_${{ envName }}/$(Build.BuildId)_${{ envName }}.zip'
+            destinationFolder: '$(System.DefaultWorkingDirectory)/application/extracted'
+  
+        - task: JFrog.jfrog-artifactory-vsts-extension.jfrog-cli-generic.JfrogCli@1
+          displayName: 'JFrog CLI'
+          inputs:
+            artifactoryService: 'AzureDevOps-WBG-Artifactory-Generic-ReadOnly'
+            command: |
+              jfrog rt download itspl-pe-cicd-helper-scripts/OISHooks/* $(System.DefaultWorkingDirectory)/
+  
+        - task: Bash@3
+          displayName: 'SC-OIS-RAPID7-STATIC-CODE-ANALYSIS-HOOK-$(DEPLOY_WEBAPP_APP_NAME)'
+          inputs:
+            targetType: filePath
+            filePath: '$(System.DefaultWorkingDirectory)/OISHooks/rapid7_prod_bash.sh'
+            arguments:
+          env:
+            RAPID7_API_URL: $(RAPID7_API_URL)
+            RAPID7_API_KEY: $(RAPID7_API_KEY)
