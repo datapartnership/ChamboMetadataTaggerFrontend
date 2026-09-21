@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { User, AuthContextType, LoginResponse } from '../types';
+import { ApiResponse, User, AuthContextType, LoginResponse } from '../types';
 import { API_URL } from '../config';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -7,12 +7,22 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 
 
-export const AuthProvider = ({ children }: { children: ReactNode }) => {
+interface AuthProviderProps {
+  children: ReactNode;
+  onLogout?: () => void;
+  restoreStoredSession?: boolean;
+}
+
+export const AuthProvider = ({ children, onLogout, restoreStoredSession = true }: AuthProviderProps) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
+    if (!restoreStoredSession) {
+      return;
+    }
+
     const storedToken = localStorage.getItem('auth_token');
     const storedUser = localStorage.getItem('auth_user');
 
@@ -20,7 +30,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setToken(storedToken);
       setUser(JSON.parse(storedUser));
     }
-  }, []);
+  }, [restoreStoredSession]);
 
   useEffect(() => {
     const handleForceLogout = () => {
@@ -68,15 +78,39 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const establishEntraSession = async (entraAccessToken: string) => {
+    setIsLoading(true);
+
+    try {
+      const response = await fetch(`${API_URL}/api/Auth/me`, {
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${entraAccessToken}`,
+        },
+      });
+      const result: ApiResponse<User> = await response.json();
+
+      if (!response.ok || !result.success || !result.data) {
+        throw new Error(result.message || 'Microsoft account is not authorized for this application');
+      }
+
+      setToken(entraAccessToken);
+      setUser(result.data);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const logout = () => {
     setUser(null);
     setToken(null);
     localStorage.removeItem('auth_token');
     localStorage.removeItem('auth_user');
+    onLogout?.();
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, isLoading }}>
+    <AuthContext.Provider value={{ user, token, login, establishEntraSession, logout, isLoading }}>
       {children}
     </AuthContext.Provider>
   );
