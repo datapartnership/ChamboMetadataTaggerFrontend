@@ -1,6 +1,7 @@
 import { LogIn } from 'lucide-react';
 import { useMsal } from '@azure/msal-react';
 import { loginRequest } from '../msalConfig';
+import { CatalogLoginLink } from './catalog/CatalogLoginLink';
 
 export const MsalLoginForm = () => {
   const { instance } = useMsal();
@@ -39,6 +40,8 @@ export const MsalLoginForm = () => {
             <LogIn className="w-5 h-5" />
             Sign in with Microsoft
           </button>
+
+          <CatalogLoginLink />
         </div>
       </div>
     </div>

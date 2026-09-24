@@ -8,10 +8,15 @@ import { MsalCallback } from './components/MsalCallback';
 import { AdminDashboard } from './components/admin/AdminDashboard';
 import { TaggerDashboard } from './components/tagger/TaggerDashboard';
 import { SupervisorDashboard } from './components/supervisor/SupervisorDashboard';
+import { PublicCatalogPage } from './components/catalog/PublicCatalogPage';
 import { loginRequest, MSAL_ENABLED } from './msalConfig';
+import { CATALOG_PATH, usePathname } from './navigation';
 
 function AppContent() {
   const { user } = useAuth();
+  const path = usePathname();
+
+  if (path === CATALOG_PATH) return <PublicCatalogPage />;
 
   if (!user) return <LoginForm />;
 
@@ -76,10 +81,10 @@ function MsalAppContent() {
 
 function MsalApplication() {
   const { instance } = useMsal();
-  const [path, setPath] = useState(window.location.pathname);
+  const path = usePathname();
   const completeCallback = useCallback(() => {
     window.history.replaceState(null, '', '/');
-    setPath('/');
+    window.dispatchEvent(new PopStateEvent('popstate'));
   }, []);
   const logout = useCallback(() => {
     void instance.logoutRedirect().catch((error: unknown) => {
@@ -89,7 +94,9 @@ function MsalApplication() {
 
   return (
     <AuthProvider onLogout={logout} restoreStoredSession={false}>
-      {path === '/callback' ? <MsalCallback onComplete={completeCallback} /> : <MsalAppContent />}
+      {path === '/callback' ? <MsalCallback onComplete={completeCallback} />
+        : path === CATALOG_PATH ? <PublicCatalogPage />
+        : <MsalAppContent />}
     </AuthProvider>
   );
 }
