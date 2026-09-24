@@ -11,19 +11,11 @@ export const PublicCatalogPage = () => {
       <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <img
-                src="/chambo_logo.png"
-                alt="Chambo Logo"
-                className="w-12 h-12 object-contain"
-              />
-              <div>
-                <div className="flex items-baseline gap-2">
-                  <h1 className="text-xl font-bold text-slate-900">Chambo Metadata Tagger</h1>
-                  <span className="text-xs font-medium text-slate-400">v{__APP_VERSION__}</span>
-                </div>
-                <p className="text-sm text-slate-600">Collections Catalog</p>
-              </div>
+            <div className="flex items-baseline gap-2">
+              <h1 className="text-xl font-bold text-slate-900">
+                Low Resource Language Library Catalog
+              </h1>
+              <span className="text-xs font-medium text-slate-400">v{__APP_VERSION__}</span>
             </div>
             <NavLink
               to="/"

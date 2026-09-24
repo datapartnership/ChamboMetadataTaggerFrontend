@@ -130,7 +130,7 @@ export const CatalogView = () => {
     <div>
       <div className="mb-6">
         <div className="flex items-start justify-between gap-4 mb-1">
-          <h2 className="text-2xl font-bold text-slate-900">Collections Catalog</h2>
+          <h2 className="text-2xl font-bold text-slate-900">Collections</h2>
           {canSync && (
             <button
               onClick={handleSync}

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { LogOut, Users, FileCheck, CheckCircle, Clock } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { CatalogHeaderLink } from '../catalog/CatalogHeaderLink';
+import { CopyTokenButton } from '../CopyTokenButton';
 import { supervisorApi } from '../../services/api';
 import { StudentWithStatsDto } from '../../types';
 import { StudentsView } from './StudentsView';
@@ -85,7 +86,10 @@ export const SupervisorDashboard = () => {
             <div className="flex items-center gap-4">
               <CatalogHeaderLink />
               <div className="text-right">
-                <p className="text-sm font-medium text-slate-900">{user?.username}</p>
+                <div className="flex items-center justify-end gap-1.5">
+                  <p className="text-sm font-medium text-slate-900">{user?.username}</p>
+                  <CopyTokenButton />
+                </div>
                 <p className="text-xs text-slate-600">{user?.role}</p>
               </div>
               <button
