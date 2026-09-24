@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { LogOut, FileText, Users, BarChart3, FolderOpen, UserCheck } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { CatalogHeaderLink } from '../catalog/CatalogHeaderLink';
+import { CopyTokenButton } from '../CopyTokenButton';
 import { FilesView } from './FilesView';
 import { UsersView } from './UsersView';
 import { ProgressView } from './ProgressView';
@@ -35,7 +36,10 @@ export const AdminDashboard = () => {
             <div className="flex items-center gap-4">
               <CatalogHeaderLink />
               <div className="text-right">
-                <p className="text-sm font-medium text-slate-900">{user?.username}</p>
+                <div className="flex items-center justify-end gap-1.5">
+                  <p className="text-sm font-medium text-slate-900">{user?.username}</p>
+                  <CopyTokenButton />
+                </div>
                 <p className="text-xs text-slate-600">{user?.role}</p>
               </div>
               <button
