@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { LogOut, FileText, CheckCircle, Clock, AlertTriangle, ChevronUp, ChevronDown } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { CatalogHeaderLink } from '../catalog/CatalogHeaderLink';
 import { taggerApi } from '../../services/api';
 import { FileMetadataDto } from '../../types';
 import { TagEditor } from './TagEditor';
@@ -110,6 +111,7 @@ export const TaggerDashboard = () => {
               </div>
             </div>
             <div className="flex items-center gap-4">
+              <CatalogHeaderLink />
               <div className="text-right">
                 <p className="text-sm font-medium text-slate-900">{user?.username}</p>
                 <p className="text-xs text-slate-600">{user?.role}</p>

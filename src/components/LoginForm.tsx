@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { LogIn, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { CatalogLoginLink } from './catalog/CatalogLoginLink';
 
 export const LoginForm = () => {
   const [email, setEmail] = useState('');
@@ -86,6 +87,8 @@ export const LoginForm = () => {
               {isLoading ? 'Signing in...' : 'Sign In'}
             </button>
           </form>
+
+          <CatalogLoginLink />
         </div>
       </div>
     </div>
