@@ -8,13 +8,16 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit -p tsconfig.app.json"
+    "typecheck": "tsc --noEmit -p tsconfig.app.json",
+    "start": "node server.js"
   },
   "dependencies": {
     "@azure/msal-browser": "^5.22.0",
     "@azure/msal-react": "^5.7.1",
     "@supabase/supabase-js": "^2.57.4",
     "@tailwindcss/typography": "^0.5.19",
+    "express": "^5.2.1",
+    "http-proxy-middleware": "^4.2.0",
     "lucide-react": "^0.344.0",
     "marked": "^17.0.1",
     "react": "^18.3.1",
