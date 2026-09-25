@@ -1,5 +1,6 @@
 import express from 'express';
 import path from 'node:path';
+import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 
@@ -7,10 +8,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = process.env.PORT || 5173;
+const PORT = process.env.PORT || 8080;
 
-// Configure upstream APIM details
-const APIM_TARGET = process.env.APIM_TARGET_URL || 'https://my-apim-instance.azure-api.net';
+// Read upstream APIM configurations
+const APIM_TARGET = process.env.APIM_TARGET_URL || 'https://int.apiqa.worldbank.org/metadata/';
 const APIM_KEY = process.env.APIM_SUBSCRIPTION_KEY;
 
 // 1. Reverse proxy /api requests to APIM
@@ -42,8 +43,11 @@ app.use(
   })
 );
 
-// 2. Serve static assets from dist
-const staticPath = path.join(__dirname, 'dist');
+// 2. Serve static assets
+const staticPath = fs.existsSync(path.join(__dirname, 'index.html'))
+  ? __dirname
+  : path.join(__dirname, 'dist');
+
 app.use(express.static(staticPath));
 
 // 3. SPA catch-all fallback
@@ -53,5 +57,6 @@ app.use((req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`Serving static files from: ${staticPath}`);
   console.log(`Proxying /api/* requests to: ${APIM_TARGET}`);
 });
