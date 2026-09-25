@@ -98,14 +98,7 @@ stages:
             ARTIFACTORY_REGISTRY: $(BUILD_ARTIFACTORY_REGISTRY)
             ARTIFACTORY_USERNAME: $(BUILD_ARTIFACTORY_USERNAME)
             ARTIFACTORY_PASSWORD: $(BUILD_ARTIFACTORY_PASSWORD)
-        # ------------------- NEW STEP ------------------- #
-        - bash: |
-            echo "Copying server runtime files into dist..."
-            cp server.js dist/
-            cp package.json dist/
-            cp -r node_modules dist/
-          displayName: 'Bundle Express Proxy into dist'
-        # ------------------------------------------------ #
+
         - bash: |
             rm -f .npmrc
           displayName: 'Remove npm credentials'
