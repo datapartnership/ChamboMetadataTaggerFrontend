@@ -66,39 +66,22 @@ const FacetGroup = ({
 };
 
 export const CollectionFacetSidebar = ({ facets, filters, onChange }: CollectionFacetSidebarProps) => {
-  const anySelected = !!(filters.type || filters.language || filters.provider || filters.theme ||
-    filters.collected || filters.processing || filters.availability || filters.year);
+  const anySelected = !!(filters.mediaType || filters.language || filters.provider || filters.theme || filters.year);
 
   return (
     <aside className="w-full">
       <div className="bg-white border border-slate-200 rounded-xl p-4">
         <h2 className="font-semibold text-slate-900 mb-4 text-sm">Filter by</h2>
 
-        <FacetGroup title="Type" items={facets.types} selected={filters.type} onSelect={(v) => onChange({ type: v })} />
-        <FacetGroup title="Collected" items={facets.collected} selected={filters.collected} onSelect={(v) => onChange({ collected: v })} />
-        <FacetGroup title="Processing" items={facets.processing} selected={filters.processing} onSelect={(v) => onChange({ processing: v })} />
-        <FacetGroup title="Availability" items={facets.availability} selected={filters.availability} onSelect={(v) => onChange({ availability: v })} />
+        <FacetGroup title="Media Type" items={facets.mediaTypes} selected={filters.mediaType} onSelect={(v) => onChange({ mediaType: v })} />
         <FacetGroup title="Language" items={facets.languages} selected={filters.language} onSelect={(v) => onChange({ language: v })} />
         <FacetGroup title="Provider" items={facets.providers} selected={filters.provider} onSelect={(v) => onChange({ provider: v })} maxVisible={6} />
         <FacetGroup title="Theme" items={facets.themes} selected={filters.theme} onSelect={(v) => onChange({ theme: v })} />
-
-        <div className="mb-5">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Year</h3>
-          <input
-            type="number"
-            value={filters.year}
-            onChange={(e) => onChange({ year: e.target.value })}
-            placeholder="e.g. 2024"
-            className="w-full px-2 py-1 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
-          />
-        </div>
+        <FacetGroup title="Year" items={facets.years} selected={filters.year} onSelect={(v) => onChange({ year: v })} maxVisible={6} />
 
         {anySelected && (
           <button
-            onClick={() => onChange({
-              type: '', language: '', provider: '', theme: '',
-              collected: '', processing: '', availability: '', year: '',
-            })}
+            onClick={() => onChange({ mediaType: '', language: '', provider: '', theme: '', year: '' })}
             className="mt-2 text-xs text-red-500 hover:underline"
           >
             Clear all filters

@@ -2,9 +2,11 @@ import {
   CatalogPagedResult,
   CollectionDetail,
   CollectionFacets,
+  CollectionFileFilters,
+  CollectionFileItem,
   CollectionFilters,
   CollectionListItem,
-  CollectionSyncResult,
+  SeedResult,
 } from '../types/catalog';
 import { API_URL } from '../config';
 
@@ -18,25 +20,42 @@ const ensureOk = async (response: Response) => {
   }
 };
 
+const toQuery = (filters: object, page: number, pageSize: number) => {
+  const p = new URLSearchParams();
+  for (const [key, value] of Object.entries(filters)) {
+    if (value) p.append(key, String(value));
+  }
+  p.append('page', String(page));
+  p.append('pageSize', String(pageSize));
+  return p.toString();
+};
+
 export const catalogApi = {
   async getCollections(
     filters: CollectionFilters,
     page: number,
     pageSize: number,
   ): Promise<CatalogPagedResult<CollectionListItem>> {
-    const p = new URLSearchParams();
-    for (const [key, value] of Object.entries(filters)) {
-      if (value) p.append(key, value);
-    }
-    p.append('page', String(page));
-    p.append('pageSize', String(pageSize));
-    const response = await fetch(`${API_URL}/api/catalog/collections?${p.toString()}`);
+    const response = await fetch(`${API_URL}/api/catalog/collections?${toQuery(filters, page, pageSize)}`);
     await ensureOk(response);
     return response.json();
   },
 
-  async getCollection(id: number): Promise<CollectionDetail> {
-    const response = await fetch(`${API_URL}/api/catalog/collections/${id}`);
+  async getCollection(id: string): Promise<CollectionDetail> {
+    const response = await fetch(`${API_URL}/api/catalog/collections/${encodeURIComponent(id)}`);
+    await ensureOk(response);
+    return response.json();
+  },
+
+  async getCollectionFiles(
+    id: string,
+    filters: CollectionFileFilters,
+    page: number,
+    pageSize: number,
+  ): Promise<CatalogPagedResult<CollectionFileItem>> {
+    const response = await fetch(
+      `${API_URL}/api/catalog/collections/${encodeURIComponent(id)}/files?${toQuery(filters, page, pageSize)}`,
+    );
     await ensureOk(response);
     return response.json();
   },
@@ -47,13 +66,12 @@ export const catalogApi = {
     return response.json();
   },
 
-  // A failed sync returns 502 with a CollectionSyncResult body describing the error.
-  async sync(token: string): Promise<CollectionSyncResult> {
-    const response = await fetch(`${API_URL}/api/catalog/collections/sync`, {
+  /** Rescans catalog storage and syncs the catalog (Admin only). */
+  async seed(token: string): Promise<SeedResult> {
+    const response = await fetch(`${API_URL}/api/seed`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
     });
-    if (response.status === 502) return response.json();
     await ensureOk(response);
     return response.json();
   },

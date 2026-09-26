@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Building2, Globe, Calendar, Tag } from 'lucide-react';
+import { ArrowLeft, Building2, Globe, Calendar, Tag, ShieldAlert } from 'lucide-react';
 import { catalogApi } from '../../services/catalogApi';
 import { CollectionDetail } from '../../types/catalog';
-import { StatusBadge, StoragePathIndicator } from './StatusBadge';
 import { formatYearRange } from './formatYearRange';
+import { formatCollectionSize } from './formatCollectionSize';
+import { CollectionFileList } from './CollectionFileList';
 
 interface CollectionDetailViewProps {
-  collectionId: number;
+  collectionId: string;
   onBack: () => void;
   onThemeSelect: (theme: string) => void;
 }
@@ -16,9 +17,15 @@ const MetaRow = ({ label, value }: { label: string; value?: string | number | nu
   return (
     <tr>
       <td className="py-2 pr-4 text-sm font-medium text-slate-500 whitespace-nowrap align-top w-36">{label}</td>
-      <td className="py-2 text-sm text-slate-800">{value}</td>
+      <td className="py-2 text-sm text-slate-800 break-words">{value}</td>
     </tr>
   );
+};
+
+const formatDate = (value?: string) => {
+  if (!value) return undefined;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString();
 };
 
 export const CollectionDetailView = ({ collectionId, onBack, onThemeSelect }: CollectionDetailViewProps) => {
@@ -70,6 +77,8 @@ export const CollectionDetailView = ({ collectionId, onBack, onThemeSelect }: Co
   }
 
   const yearRange = formatYearRange(data.startYear, data.endYear);
+  const size = formatCollectionSize(data);
+  const language = data.language && data.languageCode ? `${data.language} (${data.languageCode})` : data.language ?? data.languageCode;
 
   return (
     <>
@@ -82,28 +91,32 @@ export const CollectionDetailView = ({ collectionId, onBack, onThemeSelect }: Co
             {data.provider && (
               <span className="flex items-center gap-1"><Building2 size={12} />{data.provider}</span>
             )}
-            {data.language && (
-              <span className="flex items-center gap-1"><Globe size={12} />{data.language}</span>
+            {language && (
+              <span className="flex items-center gap-1"><Globe size={12} />{language}</span>
             )}
             {yearRange && (
               <span className="flex items-center gap-1"><Calendar size={12} />{yearRange}</span>
             )}
-            {data.type && (
-              <span className="bg-primary-50 text-primary-800 px-2 py-0.5 rounded-full border border-primary-200 font-medium">
-                {data.type}
-              </span>
-            )}
+            <span className="bg-primary-50 text-primary-800 px-2 py-0.5 rounded-full border border-primary-200 font-medium">
+              {data.mediaType}
+            </span>
+            {size && <span>{size}</span>}
           </div>
 
-          <div className="flex flex-wrap gap-1.5 mb-4">
-            <StatusBadge label="Collected" value={data.collected} />
-            <StatusBadge label="Processing" value={data.processing} />
-            <StatusBadge label="Available" value={data.availability} />
-          </div>
-
-          <div className="mb-4">
-            <StoragePathIndicator hasStoragePath={!!data.storagePath} verified={data.storagePathVerified} />
-          </div>
+          {(data.piiScreening || data.sensitiveContent) && (
+            <div className="flex flex-wrap gap-1.5 mb-4">
+              {data.piiScreening && (
+                <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full border bg-green-50 text-green-700 border-green-200">
+                  PII screened
+                </span>
+              )}
+              {data.sensitiveContent && (
+                <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full border bg-amber-50 text-amber-700 border-amber-200">
+                  <ShieldAlert size={12} /> Contains sensitive content
+                </span>
+              )}
+            </div>
+          )}
 
           {data.description && (
             <div className="bg-white border border-slate-200 rounded-xl p-4">
@@ -111,6 +124,8 @@ export const CollectionDetailView = ({ collectionId, onBack, onThemeSelect }: Co
               <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">{data.description}</p>
             </div>
           )}
+
+          <CollectionFileList collectionId={data.id} mediaType={data.mediaType} />
         </div>
 
         <aside className="lg:w-72 shrink-0 space-y-4">
@@ -120,16 +135,24 @@ export const CollectionDetailView = ({ collectionId, onBack, onThemeSelect }: Co
               <tbody>
                 <MetaRow label="ID" value={data.id} />
                 <MetaRow label="Provider" value={data.provider} />
-                <MetaRow label="Language" value={data.language} />
-                <MetaRow label="Type" value={data.type} />
-                <MetaRow label="Format" value={data.format} />
+                <MetaRow label="Media Type" value={data.mediaType} />
+                <MetaRow label="Language" value={language} />
+                <MetaRow label="Formats" value={data.formats.join(', ')} />
+                <MetaRow label="Files" value={data.items} />
+                <MetaRow label="Transcriptions" value={data.transcriptionCount || null} />
                 <MetaRow label="Hours" value={data.hours} />
-                <MetaRow label="Items" value={data.items} />
+                <MetaRow label="Coverage" value={data.temporalCoverage} />
                 <MetaRow label="Start Year" value={data.startYear} />
                 <MetaRow label="End Year" value={data.endYear} />
-                <MetaRow label="Tagged for Text" value={data.taggedForText} />
+                <MetaRow label="Published" value={formatDate(data.datePublished)} />
+                <MetaRow label="Modified" value={formatDate(data.dateModified)} />
+                <MetaRow label="Creator" value={data.creator} />
+                <MetaRow label="Publisher" value={data.publisher} />
+                <MetaRow label="Source" value={data.sourceOrganization} />
+                <MetaRow label="License" value={data.license} />
+                <MetaRow label="Version" value={data.version} />
                 <MetaRow label="Storage Path" value={data.storagePath} />
-                <MetaRow label="Last Synced" value={new Date(data.syncedAtUtc).toLocaleString()} />
+                <MetaRow label="Last Seeded" value={new Date(data.seededAtUtc).toLocaleString()} />
               </tbody>
             </table>
           </div>
@@ -148,6 +171,17 @@ export const CollectionDetailView = ({ collectionId, onBack, onThemeSelect }: Co
                   >
                     {t}
                   </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {data.keywords.length > 0 && (
+            <div className="bg-white border border-slate-200 rounded-xl p-4">
+              <h3 className="font-semibold text-slate-700 mb-3 text-sm">Keywords ({data.keywords.length})</h3>
+              <div className="flex flex-wrap gap-1.5">
+                {data.keywords.map((k) => (
+                  <span key={k} className="text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded">{k}</span>
                 ))}
               </div>
             </div>

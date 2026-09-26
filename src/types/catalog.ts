@@ -11,76 +11,102 @@ export interface CatalogPagedResult<T> {
   results: T[];
 }
 
+export type MediaType = 'Text' | 'Audio' | 'Video';
+
+export type FileKind = 'Text' | 'Audio' | 'Video' | 'Transcription';
+
 export interface CollectionListItem {
-  id: number;
+  id: string;
   name: string;
-  provider?: string;
+  provider: string;
+  mediaType: MediaType;
   language?: string;
-  type?: string;
-  format?: string;
+  languageCode?: string;
+  formats: string[];
   hours?: number;
-  items?: number;
+  /** Number of primary (non-transcription) files. */
+  items: number;
   startYear?: number;
   endYear?: number;
   themes: string[];
-  collected?: string;
-  processing?: string;
-  availability?: string;
-  taggedForText?: string;
-  hasStoragePath: boolean;
-  storagePathVerified?: boolean | null;
 }
 
-export interface CollectionDetail {
-  id: number;
-  name: string;
-  provider?: string;
-  language?: string;
-  type?: string;
-  format?: string;
-  hours?: number;
-  items?: number;
+export interface CollectionDetail extends CollectionListItem {
   description?: string;
-  startYear?: number;
-  endYear?: number;
+  keywords: string[];
+  storagePath: string;
+  temporalCoverage?: string;
+  datePublished?: string;
+  dateModified?: string;
+  license?: string;
+  creator?: string;
+  publisher?: string;
+  sourceOrganization?: string;
+  version?: string;
+  piiScreening: boolean;
+  sensitiveContent: boolean;
+  transcriptionCount: number;
+  seededAtUtc: string;
+}
+
+export interface CollectionFileItem {
+  id: string;
+  name: string;
+  kind: FileKind;
+  encodingFormat: string;
+  contentSize?: number;
+  dateModified?: string;
+  author?: string;
+  datePublished?: string;
+  wordCount?: number;
+  numberOfPages?: number;
+  duration?: number;
+  sampleRate?: number;
+  channels?: number;
+  bitrate?: number;
+  transcriptionFileId?: string;
+  keywords: string[];
   themes: string[];
-  collected?: string;
-  processing?: string;
-  availability?: string;
-  taggedForText?: string;
-  storagePath?: string;
-  storagePathVerified?: boolean | null;
-  syncedAtUtc: string;
 }
 
 export interface CollectionFacets {
   totalCollections: number;
-  types: FacetItem[];
+  mediaTypes: FacetItem[];
   languages: FacetItem[];
   providers: FacetItem[];
   themes: FacetItem[];
-  collected: FacetItem[];
-  processing: FacetItem[];
-  availability: FacetItem[];
+  years: FacetItem[];
 }
 
 export interface CollectionFilters {
   q: string;
-  type: string;
+  mediaType: string;
   language: string;
   provider: string;
   theme: string;
-  collected: string;
-  processing: string;
-  availability: string;
   year: string;
 }
 
-export interface CollectionSyncResult {
-  success: boolean;
-  rowsSynced: number;
-  rowsSkipped: number;
-  syncedAtUtc: string;
-  sourceBlobPath: string;
-  error?: string;
+export interface CollectionFileFilters {
+  q: string;
+  kind: string;
+}
+
+export interface SeedCounts {
+  collectionsAdded: number;
+  collectionsUpdated: number;
+  collectionsDeleted: number;
+  filesAdded: number;
+  filesUpdated: number;
+  filesDeleted: number;
+}
+
+export interface SeedResult {
+  byMediaType: Record<MediaType, SeedCounts>;
+  totals: SeedCounts;
+  taggerFilesMatched: number;
+  taggedFilesNotCataloged: number;
+  taggedFilesNotCatalogedExamples: string[];
+  warnings: string[];
+  message: string;
 }
