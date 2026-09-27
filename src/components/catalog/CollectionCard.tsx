@@ -1,15 +1,16 @@
 import { Building2, Globe, Calendar, Tag } from 'lucide-react';
 import { CollectionListItem } from '../../types/catalog';
-import { StatusBadge, StoragePathIndicator } from './StatusBadge';
 import { formatYearRange } from './formatYearRange';
+import { formatCollectionSize } from './formatCollectionSize';
 
 interface CollectionCardProps {
   collection: CollectionListItem;
-  onSelect: (id: number) => void;
+  onSelect: (id: string) => void;
 }
 
 export const CollectionCard = ({ collection, onSelect }: CollectionCardProps) => {
   const yearRange = formatYearRange(collection.startYear, collection.endYear);
+  const size = formatCollectionSize(collection);
 
   return (
     <button
@@ -20,11 +21,9 @@ export const CollectionCard = ({ collection, onSelect }: CollectionCardProps) =>
         <h3 className="font-semibold text-primary-900 group-hover:text-primary-700 text-sm leading-snug line-clamp-2">
           {collection.name}
         </h3>
-        {collection.type && (
-          <span className="shrink-0 bg-primary-50 text-primary-800 text-xs font-medium px-2 py-0.5 rounded-full border border-primary-200">
-            {collection.type}
-          </span>
-        )}
+        <span className="shrink-0 bg-primary-50 text-primary-800 text-xs font-medium px-2 py-0.5 rounded-full border border-primary-200">
+          {collection.mediaType}
+        </span>
       </div>
 
       <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 mb-3">
@@ -48,16 +47,7 @@ export const CollectionCard = ({ collection, onSelect }: CollectionCardProps) =>
         )}
       </div>
 
-      <div className="flex flex-wrap gap-1.5 mb-3">
-        <StatusBadge label="Collected" value={collection.collected} />
-        <StatusBadge label="Processing" value={collection.processing} />
-        <StatusBadge label="Available" value={collection.availability} />
-      </div>
-
-      <StoragePathIndicator
-        hasStoragePath={collection.hasStoragePath}
-        verified={collection.storagePathVerified}
-      />
+      {size && <p className="text-xs text-slate-600">{size}</p>}
 
       {collection.themes.length > 0 && (
         <div className="flex flex-wrap gap-1 mt-2">

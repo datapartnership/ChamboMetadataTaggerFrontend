@@ -7,6 +7,8 @@ import {
   CollectionFacets,
   CollectionFilters,
   CollectionListItem,
+  SeedCounts,
+  SeedResult,
 } from '../../types/catalog';
 import { CollectionCard } from './CollectionCard';
 import { CollectionFacetSidebar } from './CollectionFacetSidebar';
@@ -17,26 +19,59 @@ const PAGE_SIZE = 12;
 
 const EMPTY_FILTERS: CollectionFilters = {
   q: '',
-  type: '',
+  mediaType: '',
   language: '',
   provider: '',
   theme: '',
-  collected: '',
-  processing: '',
-  availability: '',
   year: '',
 };
 
 const FILTER_LABELS: Record<keyof CollectionFilters, string> = {
   q: 'Search',
-  type: 'Type',
+  mediaType: 'Media Type',
   language: 'Language',
   provider: 'Provider',
   theme: 'Theme',
-  collected: 'Collected',
-  processing: 'Processing',
-  availability: 'Available',
   year: 'Year',
+};
+
+const describeCounts = (c: SeedCounts) =>
+  `Collections: ${c.collectionsAdded} added, ${c.collectionsUpdated} updated, ${c.collectionsDeleted} deleted. ` +
+  `Files: ${c.filesAdded} added, ${c.filesUpdated} updated, ${c.filesDeleted} deleted.`;
+
+const SeedResultPanel = ({ result, onDismiss }: { result: SeedResult; onDismiss: () => void }) => {
+  const hasWarnings = result.warnings.length > 0;
+  return (
+    <div className={`mb-4 rounded-lg p-3 text-sm border ${
+      hasWarnings ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-green-50 border-green-200 text-green-700'
+    }`}>
+      <div className="flex items-start justify-between gap-2">
+        <p className="font-medium">{describeCounts(result.totals)}</p>
+        <button onClick={onDismiss} className="hover:text-red-500 transition-colors">✕</button>
+      </div>
+      <ul className="mt-1 text-xs space-y-0.5">
+        {(Object.entries(result.byMediaType) as [string, SeedCounts][]).map(([mediaType, counts]) => (
+          <li key={mediaType}><span className="font-medium">{mediaType}:</span> {describeCounts(counts)}</li>
+        ))}
+        <li>{result.taggerFilesMatched} file{result.taggerFilesMatched !== 1 ? 's' : ''} enriched with tagger metadata.</li>
+        {result.taggedFilesNotCataloged > 0 && (
+          <li>
+            {result.taggedFilesNotCataloged} tagged file{result.taggedFilesNotCataloged !== 1 ? 's' : ''} not in the catalog.
+          </li>
+        )}
+      </ul>
+      {result.warnings.length > 0 && (
+        <details className="mt-2 text-xs">
+          <summary className="cursor-pointer font-medium">
+            {result.warnings.length} warning{result.warnings.length !== 1 ? 's' : ''}
+          </summary>
+          <ul className="mt-1 list-disc pl-5 space-y-0.5">
+            {result.warnings.map((w, i) => <li key={i}>{w}</li>)}
+          </ul>
+        </details>
+      )}
+    </div>
+  );
 };
 
 const FilterPill = ({ label, onRemove }: { label: string; onRemove: () => void }) => (
@@ -48,20 +83,21 @@ const FilterPill = ({ label, onRemove }: { label: string; onRemove: () => void }
 
 export const CatalogView = () => {
   const { user, token } = useAuth();
-  const canSync = user?.role === 'Admin';
+  const canSeed = user?.role === 'Admin';
 
   const [filters, setFilters] = useState<CollectionFilters>(EMPTY_FILTERS);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
-  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const [facets, setFacets] = useState<CollectionFacets | null>(null);
   const [result, setResult] = useState<CatalogPagedResult<CollectionListItem> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
-  const [syncing, setSyncing] = useState(false);
-  const [syncMessage, setSyncMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const [seeding, setSeeding] = useState(false);
+  const [seedResult, setSeedResult] = useState<SeedResult | null>(null);
+  const [seedError, setSeedError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
@@ -94,20 +130,18 @@ export const CatalogView = () => {
     updateFilters({ q: search.trim() });
   };
 
-  const handleSync = async () => {
+  const handleSeed = async () => {
     if (!token) return;
-    setSyncing(true);
-    setSyncMessage(null);
+    setSeeding(true);
+    setSeedResult(null);
+    setSeedError(null);
     try {
-      const res = await catalogApi.sync(token);
-      setSyncMessage(res.success
-        ? { ok: true, text: `Synced ${res.rowsSynced} collections (${res.rowsSkipped} skipped).` }
-        : { ok: false, text: res.error ?? 'Sync failed.' });
-      if (res.success) setReloadKey((k) => k + 1);
+      setSeedResult(await catalogApi.seed(token));
+      setReloadKey((k) => k + 1);
     } catch (err) {
-      setSyncMessage({ ok: false, text: err instanceof Error ? err.message : 'Sync failed.' });
+      setSeedError(err instanceof Error ? err.message : 'Seed failed.');
     } finally {
-      setSyncing(false);
+      setSeeding(false);
     }
   };
 
@@ -131,30 +165,26 @@ export const CatalogView = () => {
       <div className="mb-6">
         <div className="flex items-start justify-between gap-4 mb-1">
           <h2 className="text-2xl font-bold text-slate-900">Collections</h2>
-          {canSync && (
+          {canSeed && (
             <button
-              onClick={handleSync}
-              disabled={syncing}
+              onClick={handleSeed}
+              disabled={seeding}
               className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium bg-white border border-slate-200 text-slate-700 hover:bg-accent-teal-50 disabled:opacity-50 transition-colors"
-              title="Re-sync the catalog from the source workbook"
+              title="Rescan catalog storage and add, update, or remove collections to match it"
             >
-              <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
-              {syncing ? 'Syncing...' : 'Sync from workbook'}
+              <RefreshCw className={`w-4 h-4 ${seeding ? 'animate-spin' : ''}`} />
+              {seeding ? 'Seeding...' : 'Re-seed from storage'}
             </button>
           )}
         </div>
         <p className="text-sm text-slate-600 mb-4">
-          Data collection efforts tracked by the Low Resource Language Library, including their
-          collection, processing, and availability status.
+          Text, audio, and video collections held by the Low Resource Language Library.
         </p>
 
-        {syncMessage && (
-          <div className={`mb-4 rounded-lg p-3 text-sm border ${
-            syncMessage.ok
-              ? 'bg-green-50 border-green-200 text-green-700'
-              : 'bg-red-50 border-red-200 text-red-700'
-          }`}>
-            {syncMessage.text}
+        {seedResult && <SeedResultPanel result={seedResult} onDismiss={() => setSeedResult(null)} />}
+        {seedError && (
+          <div className="mb-4 rounded-lg p-3 text-sm border bg-red-50 border-red-200 text-red-700">
+            {seedError}
           </div>
         )}
 
