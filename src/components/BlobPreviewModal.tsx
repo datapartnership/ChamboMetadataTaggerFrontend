@@ -7,10 +7,11 @@ import { FilePreviewDto } from '../types';
 interface BlobPreviewModalProps {
   blobName: string;
   getPreview: (token: string, blobName: string) => Promise<any>;
+  getText: (token: string, blobName: string) => Promise<string>;
   onClose: () => void;
 }
 
-export const BlobPreviewModal = ({ blobName, getPreview, onClose }: BlobPreviewModalProps) => {
+export const BlobPreviewModal = ({ blobName, getPreview, getText, onClose }: BlobPreviewModalProps) => {
   const { token } = useAuth();
   const [preview, setPreview] = useState<FilePreviewDto | null>(null);
   const [loading, setLoading] = useState(true);
@@ -38,11 +39,9 @@ export const BlobPreviewModal = ({ blobName, getPreview, onClose }: BlobPreviewM
                           response.data.blobName?.endsWith('.md') ||
                           blobName.endsWith('.md');
 
-        if (isMarkdown && response.data.previewUrl) {
+        if (isMarkdown) {
           try {
-            const mdResponse = await fetch(response.data.previewUrl);
-            const mdText = await mdResponse.text();
-            setMarkdownContent(mdText);
+            setMarkdownContent(await getText(token, blobName));
           } catch (err) {
             console.error('Error fetching markdown content:', err);
             setError('Failed to load markdown content');
