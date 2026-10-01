@@ -952,6 +952,7 @@ export const FilesView = () => {
           fileId={previewFile.id}
           fileName={previewFile.fileName}
           getPreview={adminApi.getFilePreview}
+          getText={adminApi.getFileText}
           onClose={() => setPreviewFile(null)}
           tags={previewFile.tags}
           status={previewFile.status}
@@ -962,6 +963,7 @@ export const FilesView = () => {
         <BlobPreviewModal
           blobName={previewBlobName}
           getPreview={adminApi.getBlobPreview}
+          getText={adminApi.getBlobText}
           onClose={() => setPreviewBlobName(null)}
         />
       )}

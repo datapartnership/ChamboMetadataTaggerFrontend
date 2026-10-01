@@ -8,12 +8,13 @@ interface FilePreviewModalProps {
   fileId: number;
   fileName: string;
   getPreview: (token: string, fileId: number) => Promise<any>;
+  getText: (token: string, fileId: number) => Promise<string>;
   onClose: () => void;
   tags?: TagDto[];
   status?: string;
 }
 
-export const FilePreviewModal = ({ fileId, fileName, getPreview, onClose, tags, status }: FilePreviewModalProps) => {
+export const FilePreviewModal = ({ fileId, fileName, getPreview, getText, onClose, tags, status }: FilePreviewModalProps) => {
   const { token } = useAuth();
   const [preview, setPreview] = useState<FilePreviewDto | null>(null);
   const [loading, setLoading] = useState(true);
@@ -40,11 +41,9 @@ export const FilePreviewModal = ({ fileId, fileName, getPreview, onClose, tags, 
                           response.data.fileName?.endsWith('.md') ||
                           response.data.blobName?.endsWith('.md');
 
-        if (isMarkdown && response.data.previewUrl) {
+        if (isMarkdown) {
           try {
-            const mdResponse = await fetch(response.data.previewUrl);
-            const mdText = await mdResponse.text();
-            setMarkdownContent(mdText);
+            setMarkdownContent(await getText(token, fileId));
           } catch (err) {
             console.error('Error fetching markdown content:', err);
             setError('Failed to load markdown content');

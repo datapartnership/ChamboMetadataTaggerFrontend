@@ -37,6 +37,18 @@ const buildPaginationQuery = (params?: PaginationParams): string => {
   return qs ? `?${qs}` : '';
 };
 
+/**
+ * Reads a file's text through the API's authenticated stream endpoint. Fetching the storage
+ * preview URL directly from the browser fails with CORS, so text content always goes via the API.
+ */
+const fetchText = async (url: string, token: string): Promise<string> => {
+  const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  if (!response.ok) {
+    throw new Error(`Failed to load file content (${response.status})`);
+  }
+  return response.text();
+};
+
 const getAuthHeaders = (token: string) => ({
   'Authorization': `Bearer ${token}`,
   'Content-Type': 'application/json',
@@ -171,6 +183,14 @@ export const adminApi = {
     return handleResponse(response);
   },
 
+  getFileText(token: string, fileId: number): Promise<string> {
+    return fetchText(`${API_URL}/api/Admin/files/${fileId}/stream`, token);
+  },
+
+  getBlobText(token: string, blobName: string): Promise<string> {
+    return fetchText(`${API_URL}/api/Admin/blobs/stream?blobName=${encodeURIComponent(blobName)}`, token);
+  },
+
   async getTaggingProgress(token: string, params?: PaginationParams): Promise<ApiResponse<PagedResponse<TaggingProgressDto>>> {
     const response = await fetch(`${API_URL}/api/Admin/tagging-progress${buildPaginationQuery(params)}`, {
       headers: getAuthHeaders(token),
@@ -242,6 +262,10 @@ export const taggerApi = {
     });
     return handleResponse(response);
   },
+
+  getFileText(token: string, fileId: number): Promise<string> {
+    return fetchText(`${API_URL}/api/Tagger/files/${fileId}/stream`, token);
+  },
 };
 
 export const supervisorApi = {
@@ -271,6 +295,10 @@ export const supervisorApi = {
       headers: getAuthHeaders(token),
     });
     return handleResponse(response);
+  },
+
+  getFileText(token: string, fileId: number): Promise<string> {
+    return fetchText(`${API_URL}/api/Supervisor/files/${fileId}/stream`, token);
   },
 
   async markFileChecked(token: string, data: MarkFileCheckedRequest): Promise<ApiResponse<boolean>> {

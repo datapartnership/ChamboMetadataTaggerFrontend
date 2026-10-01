@@ -107,11 +107,9 @@ export const TagEditor = ({ file, onUpdate }: TagEditorProps) => {
                           response.data.fileName?.endsWith('.md') ||
                           response.data.blobName?.endsWith('.md');
 
-        if (isMarkdown && response.data.previewUrl) {
+        if (isMarkdown) {
           try {
-            const mdResponse = await fetch(response.data.previewUrl);
-            const mdText = await mdResponse.text();
-            setMarkdownContent(mdText);
+            setMarkdownContent(await taggerApi.getFileText(token, file.id));
           } catch (err) {
             console.error('Error fetching markdown content:', err);
             setPreviewError('Failed to load markdown content');
