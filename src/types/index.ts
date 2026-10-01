@@ -16,6 +16,13 @@ export interface PagedResponse<T> {
   hasPreviousPage: boolean;
 }
 
+/** One page of a folder's immediate children (sub-folders first, then files). */
+export interface FolderPagedResponse<T> extends PagedResponse<T> {
+  folder: string;
+  /** Every file beneath the folder; totalCount counts only its direct children. */
+  totalFileCount: number;
+}
+
 export interface User {
   id: number;
   username: string;
@@ -66,6 +73,8 @@ export interface FileMetadataDto {
   assignedToUserIds: number[];
   supervisorNotes: string | null;
   supervisorCheckedAt: string | null;
+  isDirectory?: boolean;
+  fileCount?: number | null;
 }
 
 export interface BlobFileDto {
@@ -75,6 +84,7 @@ export interface BlobFileDto {
   contentType: string;
   lastModified: string | null;
   isDirectory?: boolean;
+  fileCount?: number | null;
 }
 
 export interface BlobItemDto {

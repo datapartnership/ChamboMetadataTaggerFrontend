@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FileText, Plus, RefreshCw, Cloud, Eye, FolderOpen, CheckCircle2, Circle, UserPlus, ChevronUp, ChevronDown } from 'lucide-react';
+import { FileText, Plus, RefreshCw, Cloud, Eye, FolderOpen, CheckCircle2, Circle, UserPlus, ChevronUp, ChevronDown, ChevronRight } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { adminApi } from '../../services/api';
 import { BlobFileDto, User, FileMetadataDto } from '../../types';
@@ -10,14 +10,56 @@ import { FilePreviewModal } from '../FilePreviewModal';
 import { BlobPreviewModal } from '../BlobPreviewModal';
 import { Pagination } from '../Pagination';
 
+const parentDirectory = (path: string) => {
+  const parts = path.split('/').filter((p) => p);
+  return parts.length > 1 ? parts.slice(0, -1).join('/') + '/' : '';
+};
+
+const FolderBreadcrumb = ({ path, onNavigate }: { path: string; onNavigate: (path: string) => void }) => {
+  if (path === '') return null;
+  const parts = path.split('/').filter((p) => p);
+  return (
+    <div className="p-4 border-b border-slate-200 bg-slate-50 flex flex-wrap items-center gap-2">
+      <button
+        onClick={() => onNavigate(parentDirectory(path))}
+        className="px-3 py-1 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-100 transition-colors text-sm"
+      >
+        ← Back
+      </button>
+      <nav className="flex flex-wrap items-center gap-1 text-sm">
+        <button onClick={() => onNavigate('')} className="text-blue-600 hover:text-blue-800">
+          All folders
+        </button>
+        {parts.map((part, i) => {
+          const target = parts.slice(0, i + 1).join('/') + '/';
+          return (
+            <span key={target} className="flex items-center gap-1">
+              <ChevronRight className="w-3 h-3 text-slate-400" />
+              {i === parts.length - 1 ? (
+                <span className="font-medium text-slate-900">{part}</span>
+              ) : (
+                <button onClick={() => onNavigate(target)} className="text-blue-600 hover:text-blue-800">
+                  {part}
+                </button>
+              )}
+            </span>
+          );
+        })}
+      </nav>
+    </div>
+  );
+};
+
+const formatFileCount = (count: number | null | undefined) =>
+  `${count ?? 0} file${count === 1 ? '' : 's'}`;
 
 export const FilesView = () => {
   const { token } = useAuth();
   // Blobs tab state
-  const [blobItems, setBlobItems] = useState<BlobFileDto[]>([]);
   const [blobPage, setBlobPage] = useState(1);
   const [blobPageSize, setBlobPageSize] = useState(25);
   const [blobTotalCount, setBlobTotalCount] = useState(0);
+  const [blobTotalFileCount, setBlobTotalFileCount] = useState(0);
   const [blobTotalPages, setBlobTotalPages] = useState(0);
   const [blobHasNext, setBlobHasNext] = useState(false);
   const [blobHasPrev, setBlobHasPrev] = useState(false);
@@ -37,6 +79,8 @@ export const FilesView = () => {
   const [unassignedPage, setUnassignedPage] = useState(1);
   const [unassignedPageSize, setUnassignedPageSize] = useState(25);
   const [unassignedTotalCount, setUnassignedTotalCount] = useState(0);
+  const [unassignedTotalFileCount, setUnassignedTotalFileCount] = useState(0);
+  const [unassignedDirectory, setUnassignedDirectory] = useState<string>('');
   const [unassignedTotalPages, setUnassignedTotalPages] = useState(0);
   const [unassignedHasNext, setUnassignedHasNext] = useState(false);
   const [unassignedHasPrev, setUnassignedHasPrev] = useState(false);
@@ -74,7 +118,7 @@ export const FilesView = () => {
 
   useEffect(() => {
     if (token) loadUnassignedFiles();
-  }, [token, unassignedPage, unassignedPageSize, unassignedSortBy, unassignedIsDescending]);
+  }, [token, unassignedPage, unassignedPageSize, unassignedSortBy, unassignedIsDescending, unassignedDirectory]);
 
   const loadTaggers = async () => {
     if (!token) return;
@@ -95,12 +139,12 @@ export const FilesView = () => {
         pageSize: blobPageSize,
       });
       if (res.success) {
-        setBlobItems(res.data.items);
+        setDirectoryContents(res.data.items);
         setBlobTotalCount(res.data.totalCount);
+        setBlobTotalFileCount(res.data.totalFileCount);
         setBlobTotalPages(res.data.totalPages);
         setBlobHasNext(res.data.hasNextPage);
         setBlobHasPrev(res.data.hasPreviousPage);
-        updateDirectoryView(res.data.items, currentDirectory);
       }
     } catch (error) {
       console.error('Error loading blobs:', error);
@@ -132,10 +176,15 @@ export const FilesView = () => {
     if (!token) return;
     setLoading(true);
     try {
-      const res = await adminApi.getUnassignedFiles(token, { page: unassignedPage, pageSize: unassignedPageSize, sortBy: unassignedSortBy, isDescending: unassignedIsDescending });
+      const res = await adminApi.getUnassignedFiles(
+        token,
+        { page: unassignedPage, pageSize: unassignedPageSize, sortBy: unassignedSortBy, isDescending: unassignedIsDescending },
+        unassignedDirectory || undefined,
+      );
       if (res.success) {
         setUnassignedFiles(res.data.items);
         setUnassignedTotalCount(res.data.totalCount);
+        setUnassignedTotalFileCount(res.data.totalFileCount);
         setUnassignedTotalPages(res.data.totalPages);
         setUnassignedHasNext(res.data.hasNextPage);
         setUnassignedHasPrev(res.data.hasPreviousPage);
@@ -147,54 +196,16 @@ export const FilesView = () => {
     }
   };
 
-  const updateDirectoryView = (files: BlobFileDto[], directory: string) => {
-    const filtered = files.filter((file) => {
-      const relativePath = file.blobName.startsWith(directory) ? file.blobName.slice(directory.length) : '';
-      return file.blobName.startsWith(directory) && relativePath.length > 0;
-    });
-
-    const uniqueItems = new Map<string, BlobFileDto>();
-
-    filtered.forEach((file) => {
-      const relativePath = file.blobName.slice(directory.length);
-      const parts = relativePath.split('/').filter((p) => p);
-
-      if (parts.length === 1) {
-        // Direct file in this directory
-        uniqueItems.set(file.blobName, file);
-      } else {
-        // Directory entry
-        const dirName = directory + parts[0] + '/';
-        if (!uniqueItems.has(dirName)) {
-          uniqueItems.set(dirName, {
-            blobName: dirName,
-            fileUrl: '',
-            fileSize: 0,
-            contentType: '',
-            lastModified: null,
-            isDirectory: true,
-          });
-        }
-      }
-    });
-
-    setDirectoryContents(Array.from(uniqueItems.values()));
-    setCurrentDirectory(directory);
-  };
-
   const navigateToDirectory = (dirPath: string) => {
     setCurrentDirectory(dirPath);
     setBlobPage(1);
     setSelectedBlobNames(new Set());
   };
 
-  const goBack = () => {
-    if (currentDirectory === '') return;
-    const parts = currentDirectory.slice(0, -1).split('/').filter((p) => p);
-    const parent = parts.slice(0, -1).join('/') + (parts.length > 1 ? '/' : '');
-    setCurrentDirectory(parent);
-    setBlobPage(1);
-    setSelectedBlobNames(new Set());
+  const navigateToUnassignedDirectory = (dirPath: string) => {
+    setUnassignedDirectory(dirPath);
+    setUnassignedPage(1);
+    setSelectedFileIds(new Set());
   };
 
   const handleAssignFile = (file: FileMetadataDto) => {
@@ -331,11 +342,15 @@ export const FilesView = () => {
     setSelectedFileIds(newSelected);
   };
 
+  const selectableUnassignedFiles = unassignedFiles.filter((f) => !f.isDirectory);
+  const allUnassignedSelected =
+    selectableUnassignedFiles.length > 0 && selectedFileIds.size === selectableUnassignedFiles.length;
+
   const handleSelectAllUnassignedFiles = () => {
-    if (selectedFileIds.size === unassignedFiles.length && unassignedFiles.length > 0) {
+    if (allUnassignedSelected) {
       setSelectedFileIds(new Set());
     } else {
-      setSelectedFileIds(new Set(unassignedFiles.map((f) => f.id)));
+      setSelectedFileIds(new Set(selectableUnassignedFiles.map((f) => f.id)));
     }
   };
 
@@ -396,7 +411,7 @@ export const FilesView = () => {
               }`}
             >
               <FileText className="w-4 h-4" />
-              Unassigned ({unassignedTotalCount})
+              Unassigned ({unassignedTotalFileCount})
             </button>
             <button
               onClick={() => setActiveTab('blobs')}
@@ -407,7 +422,7 @@ export const FilesView = () => {
               }`}
             >
               <Cloud className="w-4 h-4" />
-              Blob Storage ({blobTotalCount})
+              Blob Storage ({blobTotalFileCount})
             </button>
           </div>
         </div>
@@ -589,6 +604,8 @@ export const FilesView = () => {
                 </button>
               </div>
 
+              <FolderBreadcrumb path={unassignedDirectory} onNavigate={navigateToUnassignedDirectory} />
+
               {/* Bulk Selection Toolbar */}
               {selectedFileIds.size > 0 && (
                 <div className="p-4 border-b border-slate-200 bg-blue-50 flex items-center justify-between">
@@ -612,9 +629,9 @@ export const FilesView = () => {
                       <button
                         onClick={handleSelectAllUnassignedFiles}
                         className="p-1 hover:bg-slate-200 rounded transition-colors"
-                        title={selectedFileIds.size === unassignedFiles.length ? 'Deselect all' : 'Select all'}
+                        title={allUnassignedSelected ? 'Deselect all' : 'Select all'}
                       >
-                        {selectedFileIds.size === unassignedFiles.length && unassignedFiles.length > 0 ? (
+                        {allUnassignedSelected ? (
                           <CheckCircle2 className="w-5 h-5 text-blue-600" />
                         ) : (
                           <Circle className="w-5 h-5 text-slate-400" />
@@ -628,7 +645,27 @@ export const FilesView = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
-                  {unassignedFiles.map((file) => (
+                  {unassignedFiles.map((file) => file.isDirectory ? (
+                    <tr key={file.blobName} className="hover:bg-slate-50 transition-colors">
+                      <td className="px-6 py-4">
+                        <div className="w-7" />
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <FolderOpen className="w-5 h-5 text-amber-500 flex-shrink-0" />
+                          <button
+                            onClick={() => navigateToUnassignedDirectory(file.blobName)}
+                            className="text-sm font-medium text-blue-600 hover:text-blue-800 truncate text-left"
+                          >
+                            {file.fileName}
+                          </button>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-slate-600">{formatFileCount(file.fileCount)}</td>
+                      <td className="px-6 py-4 text-sm text-slate-700">Folder</td>
+                      <td className="px-6 py-4" />
+                    </tr>
+                  ) : (
                     <tr key={file.id} className={`hover:bg-slate-50 transition-colors ${selectedFileIds.has(file.id) ? 'bg-blue-50' : ''}`}>
                       <td className="px-6 py-4">
                         <button
@@ -679,7 +716,7 @@ export const FilesView = () => {
               {unassignedFiles.length === 0 && (
                 <div className="text-center py-12">
                   <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                  <p className="text-slate-600">No unassigned files</p>
+                  <p className="text-slate-600">{unassignedDirectory === '' ? 'No unassigned files' : 'No unassigned files in this folder'}</p>
                 </div>
               )}
               <Pagination
@@ -695,20 +732,7 @@ export const FilesView = () => {
             </>
           ) : (
             <>
-              {/* Directory Navigation */}
-              {currentDirectory !== '' && (
-                <div className="p-4 border-b border-slate-200 bg-slate-50 flex items-center gap-2">
-                  <button
-                    onClick={goBack}
-                    className="px-3 py-1 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-100 transition-colors text-sm"
-                  >
-                    ← Back
-                  </button>
-                  <span className="text-sm text-slate-600">
-                    {currentDirectory.split('/').filter((p) => p).pop() || 'Root'}
-                  </span>
-                </div>
-              )}
+              <FolderBreadcrumb path={currentDirectory} onNavigate={navigateToDirectory} />
 
               {/* Bulk Selection Toolbar */}
               {selectedBlobNames.size > 0 && (
@@ -760,9 +784,9 @@ export const FilesView = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
-                  {directoryContents.map((item, index) => (
+                  {directoryContents.map((item) => (
                     <tr
-                      key={index}
+                      key={item.blobName}
                       className={`hover:bg-slate-50 transition-colors ${!item.isDirectory && selectedBlobNames.has(item.blobName) ? 'bg-blue-50' : ''}`}
                     >
                       <td className="px-6 py-4">
@@ -808,7 +832,7 @@ export const FilesView = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4 text-sm text-slate-600">
-                        {!item.isDirectory && formatFileSize(item.fileSize)}
+                        {item.isDirectory ? formatFileCount(item.fileCount) : formatFileSize(item.fileSize)}
                       </td>
                       <td className="px-6 py-4 text-sm text-slate-700">
                         {item.isDirectory ? 'Folder' : item.contentType || 'Unknown'}
@@ -845,7 +869,7 @@ export const FilesView = () => {
 
               {directoryContents.length === 0 && (
                 <div className="text-center py-12">
-                  {blobTotalCount === 0 ? (
+                  {currentDirectory === '' ? (
                     <>
                       <Cloud className="w-12 h-12 text-slate-300 mx-auto mb-3" />
                       <p className="text-slate-600 mb-2">No blob files found</p>

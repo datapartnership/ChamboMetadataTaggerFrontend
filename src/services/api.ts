@@ -1,6 +1,7 @@
 import {
   ApiResponse,
   PagedResponse,
+  FolderPagedResponse,
   PaginationParams,
   FileMetadataDto,
   BlobFileDto,
@@ -82,7 +83,7 @@ export const adminApi = {
     return handleResponse(response);
   },
 
-  async getBlobs(token: string, folder?: string, params?: PaginationParams): Promise<ApiResponse<PagedResponse<BlobFileDto>>> {
+  async getBlobs(token: string, folder?: string, params?: PaginationParams): Promise<ApiResponse<FolderPagedResponse<BlobFileDto>>> {
     const p = new URLSearchParams();
     if (folder) p.append('folder', folder);
     if (params?.page !== undefined) p.append('Page', String(params.page));
@@ -104,8 +105,11 @@ export const adminApi = {
     return handleResponse(response);
   },
 
-  async getUnassignedFiles(token: string, params?: PaginationParams): Promise<ApiResponse<PagedResponse<FileMetadataDto>>> {
-    const response = await fetch(`${API_URL}/api/Admin/files/unassigned${buildPaginationQuery(params)}`, {
+  async getUnassignedFiles(token: string, params?: PaginationParams, folder?: string): Promise<ApiResponse<FolderPagedResponse<FileMetadataDto>>> {
+    const query = buildPaginationQuery(params);
+    const folderQuery = folder ? `folder=${encodeURIComponent(folder)}` : '';
+    const qs = [query.replace(/^\?/, ''), folderQuery].filter(Boolean).join('&');
+    const response = await fetch(`${API_URL}/api/Admin/files/unassigned${qs ? `?${qs}` : ''}`, {
       headers: getAuthHeaders(token),
     });
     return handleResponse(response);
