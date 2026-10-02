@@ -9,7 +9,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.app.json",
-    "start": "node server.js"
+    "start": "node dist/server.cjs"
   },
   "dependencies": {
     "@azure/msal-browser": "^5.22.0",
