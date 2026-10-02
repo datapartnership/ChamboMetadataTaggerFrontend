@@ -340,7 +340,8 @@ stages:
             appName: $(DEPLOY_WEBAPP_APP_NAME_${{ envName }})
             package: $(System.DefaultWorkingDirectory)/application_${{ envName }}/$(Build.BuildId)_${{ envName }}.zip
             runtimeStack: $(DEPLOY_WEBAPP_RUNTIME_STACK)
-            startUpCommand: $(DEPLOY_WEBAPP_STARTUP_COMMAND)
+            # Hard-coded: server.cjs (from public/) serves the SPA with security headers.
+            startUpCommand: 'pm2 start /home/site/wwwroot/server.cjs --no-daemon'
 
   # ================= POST-DEPLOY SCAN (placeholder) ============== #
   # Fragment: postdeployscan.yaml
