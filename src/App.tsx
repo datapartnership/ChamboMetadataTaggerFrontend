@@ -10,6 +10,8 @@ import { TaggerDashboard } from './components/tagger/TaggerDashboard';
 import { SupervisorDashboard } from './components/supervisor/SupervisorDashboard';
 import { PublicCatalogPage } from './components/catalog/PublicCatalogPage';
 import { loginRequest, MSAL_ENABLED } from './msalConfig';
+import { KEYCLOAK_ENABLED, keycloakInitOptions, keycloakInstance } from './keycloakConfig';
+import { KeycloakLoginForm } from './components/KeycloakLoginForm';
 import { CATALOG_PATH, usePathname } from './navigation';
 
 function AppContent() {
@@ -101,7 +103,105 @@ function MsalApplication() {
   );
 }
 
+function KeycloakAppContent() {
+  const { user, establishEntraSession, setAccessToken, isLoading } = useAuth();
+  const [ready, setReady] = useState(false);
+  const [authenticated, setAuthenticated] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const initStarted = useRef(false);
+
+  useEffect(() => {
+    const keycloak = keycloakInstance;
+    if (!keycloak || initStarted.current) return;
+    initStarted.current = true;
+
+    keycloak.init(keycloakInitOptions)
+      .then(async (isAuthenticated) => {
+        setAuthenticated(isAuthenticated);
+        if (isAuthenticated && keycloak.token) {
+          await establishEntraSession(keycloak.token);
+        }
+      })
+      .catch((initError: unknown) => {
+        setError(initError instanceof Error
+          ? initError.message
+          : 'Unable to establish an application session with Keycloak.');
+      })
+      .finally(() => setReady(true));
+  }, [establishEntraSession]);
+
+  // Keycloak access tokens are short-lived; refresh before expiry and hand the new one to the context.
+  useEffect(() => {
+    const keycloak = keycloakInstance;
+    if (!user || !keycloak) return;
+
+    const interval = window.setInterval(() => {
+      keycloak.updateToken(60)
+        .then((refreshed) => {
+          if (refreshed && keycloak.token) setAccessToken(keycloak.token);
+        })
+        .catch(() => keycloak.login());
+    }, 30_000);
+
+    return () => window.clearInterval(interval);
+  }, [user, setAccessToken]);
+
+  if (!ready) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-primary-900 via-primary-800 to-primary-900 flex items-center justify-center px-4">
+        <p className="text-white">Signing you in...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-primary-900 via-primary-800 to-primary-900 flex items-center justify-center px-4">
+        <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8">
+          <h1 className="text-2xl font-bold text-primary-900 mb-4">Keycloak sign-in could not be completed</h1>
+          <p className="text-slate-600">{error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!authenticated) return <KeycloakLoginForm />;
+
+  if (isLoading || !user) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-primary-900 via-primary-800 to-primary-900 flex items-center justify-center px-4">
+        <p className="text-white">Signing you in...</p>
+      </div>
+    );
+  }
+
+  if (user.role === 'Admin') return <AdminDashboard />;
+  if (user.role === 'Tagger') return <TaggerDashboard />;
+  if (user.role === 'Supervisor') return <SupervisorDashboard />;
+
+  return <KeycloakLoginForm />;
+}
+
+function KeycloakApplication() {
+  const path = usePathname();
+  const logout = useCallback(() => {
+    void keycloakInstance?.logout({ redirectUri: window.location.origin }).catch((error: unknown) => {
+      console.error('Keycloak logout failed', error);
+    });
+  }, []);
+
+  return (
+    <AuthProvider onLogout={logout} restoreStoredSession={false}>
+      {path === CATALOG_PATH ? <PublicCatalogPage /> : <KeycloakAppContent />}
+    </AuthProvider>
+  );
+}
+
 function App() {
+  if (KEYCLOAK_ENABLED) {
+    return <KeycloakApplication />;
+  }
+
   if (MSAL_ENABLED) {
     return <MsalApplication />;
   }

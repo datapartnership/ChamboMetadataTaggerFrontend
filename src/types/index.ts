@@ -48,6 +48,7 @@ export interface AuthContextType {
   token: string | null;
   login: (email: string, password: string) => Promise<void>;
   establishEntraSession: (token: string) => Promise<void>;
+  setAccessToken: (token: string) => void;
   logout: () => void;
   isLoading: boolean;
 }

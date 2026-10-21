@@ -110,7 +110,7 @@ export const AuthProvider = ({ children, onLogout, restoreStoredSession = true }
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, login, establishEntraSession, logout, isLoading }}>
+    <AuthContext.Provider value={{ user, token, login, establishEntraSession, setAccessToken: setToken, logout, isLoading }}>
       {children}
     </AuthContext.Provider>
   );
