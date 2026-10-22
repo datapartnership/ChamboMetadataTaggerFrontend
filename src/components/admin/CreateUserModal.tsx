@@ -114,6 +114,7 @@ export const CreateUserModal = ({ onClose, onSuccess }: CreateUserModalProps) =>
               <option value="Tagger">Tagger</option>
               <option value="Supervisor">Supervisor</option>
               <option value="Admin">Admin</option>
+              <option value="Consumer">Consumer</option>
             </select>
           </div>
 

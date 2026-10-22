@@ -8,6 +8,7 @@ import { MsalCallback } from './components/MsalCallback';
 import { AdminDashboard } from './components/admin/AdminDashboard';
 import { TaggerDashboard } from './components/tagger/TaggerDashboard';
 import { SupervisorDashboard } from './components/supervisor/SupervisorDashboard';
+import { ConsumerDashboard } from './components/consumer/ConsumerDashboard';
 import { PublicCatalogPage } from './components/catalog/PublicCatalogPage';
 import { loginRequest, MSAL_ENABLED } from './msalConfig';
 import { KEYCLOAK_ENABLED, keycloakInitOptions, keycloakInstance } from './keycloakConfig';
@@ -25,6 +26,7 @@ function AppContent() {
   if (user.role === 'Admin') return <AdminDashboard />;
   if (user.role === 'Tagger') return <TaggerDashboard />;
   if (user.role === 'Supervisor') return <SupervisorDashboard />;
+  if (user.role === 'Consumer') return <ConsumerDashboard />;
 
   return <LoginForm />;
 }
@@ -77,6 +79,7 @@ function MsalAppContent() {
   if (user.role === 'Admin') return <AdminDashboard />;
   if (user.role === 'Tagger') return <TaggerDashboard />;
   if (user.role === 'Supervisor') return <SupervisorDashboard />;
+  if (user.role === 'Consumer') return <ConsumerDashboard />;
 
   return <LoginForm />;
 }
@@ -178,6 +181,7 @@ function KeycloakAppContent() {
   if (user.role === 'Admin') return <AdminDashboard />;
   if (user.role === 'Tagger') return <TaggerDashboard />;
   if (user.role === 'Supervisor') return <SupervisorDashboard />;
+  if (user.role === 'Consumer') return <ConsumerDashboard />;
 
   return <KeycloakLoginForm />;
 }
